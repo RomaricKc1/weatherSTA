@@ -1,0 +1,368 @@
+[
+    {
+        "apiVersion": "influxdata.com/v2alpha1",
+        "kind": "Dashboard",
+        "metadata": {
+            "name": "mystifying-ellis-9ed001"
+        },
+        "spec": {
+            "charts": [
+                {
+                    "colors": [
+                        {
+                            "id": "0",
+                            "name": "honeydew",
+                            "type": "min",
+                            "hex": "#7CE490",
+                            "value": 400
+                        },
+                        {
+                            "id": "9QVVtzvitK3VCo1KBkvRs",
+                            "name": "tiger",
+                            "type": "threshold",
+                            "hex": "#F48D38",
+                            "value": 800
+                        },
+                        {
+                            "id": "B_4mN-E1SuS4jVxHCZGbQ",
+                            "name": "ruby",
+                            "type": "threshold",
+                            "hex": "#BF3D5E",
+                            "value": 1400
+                        },
+                        {
+                            "id": "1",
+                            "name": "ruby",
+                            "type": "max",
+                            "hex": "#BF3D5E",
+                            "value": 2000
+                        }
+                    ],
+                    "decimalPlaces": 2,
+                    "height": 4,
+                    "kind": "Gauge",
+                    "name": "Co2 Concentration PPM",
+                    "prefix": "Co2 :: ",
+                    "queries": [
+                        {
+                            "query": "from(bucket: \"esp32\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Co2_TH\")\n  |> filter(fn: (r) => r[\"_field\"] == \"co2\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")"
+                        }
+                    ],
+                    "staticLegend": {},
+                    "suffix": " PPM",
+                    "tickSuffix": " ppm",
+                    "width": 4
+                },
+                {
+                    "axes": [
+                        {
+                            "base": "10",
+                            "name": "x",
+                            "scale": "linear"
+                        },
+                        {
+                            "base": "10",
+                            "label": "parts per million PPM",
+                            "name": "y",
+                            "scale": "linear"
+                        }
+                    ],
+                    "colorizeRows": true,
+                    "colors": [
+                        {
+                            "id": "ncx9R0W2NOj_sDtOHG5v_",
+                            "name": "Nineteen Eighty Four",
+                            "type": "scale",
+                            "hex": "#31C0F6"
+                        },
+                        {
+                            "id": "Mw2KGD3eO8zwe2N59GEdl",
+                            "name": "Nineteen Eighty Four",
+                            "type": "scale",
+                            "hex": "#A500A5"
+                        },
+                        {
+                            "id": "nfSyHdRXH4kYOyYTePFil",
+                            "name": "Nineteen Eighty Four",
+                            "type": "scale",
+                            "hex": "#FF7E27"
+                        }
+                    ],
+                    "geom": "line",
+                    "height": 4,
+                    "heightRatio": 0.15079365079365079,
+                    "hoverDimension": "auto",
+                    "kind": "Xy",
+                    "legendColorizeRows": true,
+                    "legendOpacity": 1,
+                    "legendOrientationThreshold": 100000000,
+                    "name": "Co2 trend",
+                    "opacity": 1,
+                    "orientationThreshold": 100000000,
+                    "position": "overlaid",
+                    "queries": [
+                        {
+                            "query": "from(bucket: \"esp32\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Co2_TH\")\n  |> filter(fn: (r) => r[\"_field\"] == \"co2\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")"
+                        }
+                    ],
+                    "staticLegend": {
+                        "colorizeRows": true,
+                        "heightRatio": 0.15079365079365079,
+                        "opacity": 1,
+                        "orientationThreshold": 100000000,
+                        "widthRatio": 1
+                    },
+                    "width": 4,
+                    "widthRatio": 1,
+                    "xCol": "_time",
+                    "yCol": "_value",
+                    "yPos": 4
+                },
+                {
+                    "colors": [
+                        {
+                            "id": "0",
+                            "name": "ocean",
+                            "type": "min",
+                            "hex": "#4591ED",
+                            "value": 5
+                        },
+                        {
+                            "id": "z4AIZroM1_xKxuMAmR1_E",
+                            "name": "laser",
+                            "type": "threshold",
+                            "hex": "#00C9FF",
+                            "value": 10
+                        },
+                        {
+                            "id": "qJCG5XDBGvfWMK-Ggr51v",
+                            "name": "viridian",
+                            "type": "threshold",
+                            "hex": "#32B08C",
+                            "value": 18
+                        },
+                        {
+                            "id": "Sn-qhMXutbcmZCM34wztz",
+                            "name": "pineapple",
+                            "type": "threshold",
+                            "hex": "#FFB94A",
+                            "value": 24
+                        },
+                        {
+                            "id": "6kovazZ4YVWCQmIwIGKJW",
+                            "name": "curacao",
+                            "type": "threshold",
+                            "hex": "#F95F53",
+                            "value": 31
+                        },
+                        {
+                            "id": "1",
+                            "name": "ruby",
+                            "type": "max",
+                            "hex": "#BF3D5E",
+                            "value": 45
+                        }
+                    ],
+                    "decimalPlaces": 2,
+                    "height": 4,
+                    "kind": "Gauge",
+                    "name": "Temperature °C",
+                    "prefix": "Temperature :: ",
+                    "queries": [
+                        {
+                            "query": "from(bucket: \"esp32\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Co2_TH\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temp\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")"
+                        }
+                    ],
+                    "staticLegend": {},
+                    "suffix": " °C",
+                    "tickSuffix": " °C",
+                    "width": 4,
+                    "xPos": 4
+                },
+                {
+                    "axes": [
+                        {
+                            "base": "10",
+                            "name": "x",
+                            "scale": "linear"
+                        },
+                        {
+                            "base": "10",
+                            "label": "°C (Celsius)",
+                            "name": "y",
+                            "scale": "linear"
+                        }
+                    ],
+                    "colorizeRows": true,
+                    "colors": [
+                        {
+                            "id": "ncx9R0W2NOj_sDtOHG5v_",
+                            "name": "Nineteen Eighty Four",
+                            "type": "scale",
+                            "hex": "#31C0F6"
+                        },
+                        {
+                            "id": "Mw2KGD3eO8zwe2N59GEdl",
+                            "name": "Nineteen Eighty Four",
+                            "type": "scale",
+                            "hex": "#A500A5"
+                        },
+                        {
+                            "id": "nfSyHdRXH4kYOyYTePFil",
+                            "name": "Nineteen Eighty Four",
+                            "type": "scale",
+                            "hex": "#FF7E27"
+                        }
+                    ],
+                    "geom": "line",
+                    "height": 4,
+                    "hoverDimension": "auto",
+                    "kind": "Xy",
+                    "legendColorizeRows": true,
+                    "legendOpacity": 1,
+                    "legendOrientationThreshold": 100000000,
+                    "name": "Temperature trend",
+                    "opacity": 1,
+                    "orientationThreshold": 100000000,
+                    "position": "overlaid",
+                    "queries": [
+                        {
+                            "query": "from(bucket: \"esp32\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Co2_TH\")\n  |> filter(fn: (r) => r[\"_field\"] == \"temp\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")"
+                        }
+                    ],
+                    "staticLegend": {
+                        "colorizeRows": true,
+                        "opacity": 1,
+                        "orientationThreshold": 100000000,
+                        "widthRatio": 1
+                    },
+                    "width": 4,
+                    "widthRatio": 1,
+                    "xCol": "_time",
+                    "xPos": 4,
+                    "yCol": "_value",
+                    "yPos": 4
+                },
+                {
+                    "colors": [
+                        {
+                            "id": "0",
+                            "name": "ocean",
+                            "type": "min",
+                            "hex": "#4591ED"
+                        },
+                        {
+                            "id": "jfgeHSNf3hST_fyLrm6Dm",
+                            "name": "viridian",
+                            "type": "threshold",
+                            "hex": "#32B08C",
+                            "value": 40
+                        },
+                        {
+                            "id": "mYFPOSmeGSKOw2CMyEETQ",
+                            "name": "tiger",
+                            "type": "threshold",
+                            "hex": "#F48D38",
+                            "value": 60
+                        },
+                        {
+                            "id": "2alnMdHP0Hjk2rcjVUn3d",
+                            "name": "ruby",
+                            "type": "threshold",
+                            "hex": "#BF3D5E",
+                            "value": 80
+                        },
+                        {
+                            "id": "1",
+                            "name": "ruby",
+                            "type": "max",
+                            "hex": "#BF3D5E",
+                            "value": 100
+                        }
+                    ],
+                    "decimalPlaces": 2,
+                    "height": 4,
+                    "kind": "Gauge",
+                    "name": "Humidity %RH",
+                    "prefix": "Humidity :: ",
+                    "queries": [
+                        {
+                            "query": "from(bucket: \"esp32\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Co2_TH\")\n  |> filter(fn: (r) => r[\"_field\"] == \"humi\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")"
+                        }
+                    ],
+                    "staticLegend": {},
+                    "suffix": " %RH",
+                    "tickSuffix": " %RH",
+                    "width": 4,
+                    "xPos": 8
+                },
+                {
+                    "axes": [
+                        {
+                            "base": "10",
+                            "name": "x",
+                            "scale": "linear"
+                        },
+                        {
+                            "base": "10",
+                            "label": "%RH",
+                            "name": "y",
+                            "scale": "linear"
+                        }
+                    ],
+                    "colorizeRows": true,
+                    "colors": [
+                        {
+                            "id": "ncx9R0W2NOj_sDtOHG5v_",
+                            "name": "Nineteen Eighty Four",
+                            "type": "scale",
+                            "hex": "#31C0F6"
+                        },
+                        {
+                            "id": "Mw2KGD3eO8zwe2N59GEdl",
+                            "name": "Nineteen Eighty Four",
+                            "type": "scale",
+                            "hex": "#A500A5"
+                        },
+                        {
+                            "id": "nfSyHdRXH4kYOyYTePFil",
+                            "name": "Nineteen Eighty Four",
+                            "type": "scale",
+                            "hex": "#FF7E27"
+                        }
+                    ],
+                    "geom": "line",
+                    "height": 4,
+                    "hoverDimension": "auto",
+                    "kind": "Xy",
+                    "legendColorizeRows": true,
+                    "legendOpacity": 1,
+                    "legendOrientationThreshold": 100000000,
+                    "name": "Humidity trend",
+                    "opacity": 1,
+                    "orientationThreshold": 100000000,
+                    "position": "overlaid",
+                    "queries": [
+                        {
+                            "query": "from(bucket: \"esp32\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Co2_TH\")\n  |> filter(fn: (r) => r[\"_field\"] == \"humi\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")"
+                        }
+                    ],
+                    "staticLegend": {
+                        "colorizeRows": true,
+                        "opacity": 1,
+                        "orientationThreshold": 100000000,
+                        "widthRatio": 1
+                    },
+                    "width": 4,
+                    "widthRatio": 1,
+                    "xCol": "_time",
+                    "xPos": 8,
+                    "yCol": "_value",
+                    "yPos": 4
+                }
+            ],
+            "description": "Temperature, Humidity, pressure and Co2 levels",
+            "name": "STA dashboard"
+        }
+    }
+]
