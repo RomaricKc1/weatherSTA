@@ -9,7 +9,8 @@ SensirionI2CScd4x scd40;				// co2+temp+humi I2C sensor
 
 WiFiManager wm; // wifi manager
 ESP32Time rtc;
-InfluxDBClient db_client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN /*, InfluxDbCloud2CACert */);
+InfluxDBClient db_client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET,
+						 INFLUXDB_TOKEN /*, InfluxDbCloud2CACert */);
 /////////////////////////////////////////////////////////////////////////////////////
 
 // TASKS
@@ -27,8 +28,12 @@ void vTaskAPI(void *pvParameters)
 	data_n.apiKey = user_api_key;
 	data_n.nameOfCity = user_location_coordinate;
 
-	String serverPath_now = "http://api.openweathermap.org/data/2.5/weather?" + data_n.nameOfCity + "&APPID=" + data_n.apiKey + "&mode=json&units=metric";
-	String serverPath_forecast = "http://api.openweathermap.org/data/2.5/forecast?" + data_n.nameOfCity + "&APPID=" + data_n.apiKey + "&mode=json&units=metric&cnt=1";
+	String serverPath_now = "http://api.openweathermap.org/data/2.5/weather?" +
+							data_n.nameOfCity + "&APPID=" + data_n.apiKey +
+							"&mode=json&units=metric";
+	String serverPath_forecast =
+		"http://api.openweathermap.org/data/2.5/forecast?" + data_n.nameOfCity +
+		"&APPID=" + data_n.apiKey + "&mode=json&units=metric&cnt=1";
 
 	float last_press = 1013.0;
 	uint32_t msk_state = 0x00;
@@ -37,11 +42,13 @@ void vTaskAPI(void *pvParameters)
 	for (;;)
 	{
 		// await wifi connected, do not clear on exit
-		xEventGroupWaitBits(handler_event, (1 << WLAN_CONTD_BIT), pdFALSE, pdFALSE, portMAX_DELAY);
+		xEventGroupWaitBits(handler_event, (1 << WLAN_CONTD_BIT), pdFALSE, pdFALSE,
+							portMAX_DELAY);
 
 		if (msk_state & (1 << NOW))
 		{
-			msk_state &= ~((1 << NOW)); // set the mask state to disable now and activate fcast
+			msk_state &=
+				~((1 << NOW)); // set the mask state to disable now and activate fcast
 			msk_state |= (1 << FCAST);
 
 			nowLogic(pcTaskName, serverPath_now, data_n, last_press);
@@ -78,7 +85,8 @@ void vTaskSensors(void *pvParameters)
 	getServer_State(is_server_up, pcTaskName); // try connecting to the server
 
 	// await scd calibration, do not clear on exit
-	xEventGroupWaitBits(handler_event, (1 << SCD_CAL_DONE), pdFALSE, pdFALSE, portMAX_DELAY);
+	xEventGroupWaitBits(handler_event, (1 << SCD_CAL_DONE), pdFALSE, pdFALSE,
+						portMAX_DELAY);
 	if (debug_msk & (1 << debug_sensors))
 	{
 		id_n_talk(pcTaskName, "SCD41 calibration terminated");
@@ -105,7 +113,8 @@ void vTaskSensors(void *pvParameters)
 		if (!(error == true or data.co2 == 0))
 		{
 			// send it to the queue
-			// printf("sent co2: %d - humi: %f - temp: %f\n", data_to_queue.co2, data_to_queue.humi, data_to_queue.temp);
+			// printf("sent co2: %d - humi: %f - temp: %f\n", data_to_queue.co2,
+			// data_to_queue.humi, data_to_queue.temp);
 			xQueueOverwrite(xQueueOffline, &data);
 		}
 		else if (debug_msk & (1 << debug_sensors))
@@ -115,7 +124,8 @@ void vTaskSensors(void *pvParameters)
 		}
 
 		// Regularly check if the influx db server is up? default: T = 5 mins
-		if (is_server_up == false and (xTaskGetTickCount() - ticktime > CHECK_SERVER_STATUS_T))
+		if (is_server_up == false and
+			(xTaskGetTickCount() - ticktime > CHECK_SERVER_STATUS_T))
 		{
 			ticktime = xTaskGetTickCount();
 			getServer_State(is_server_up, pcTaskName); // try connecting to the server
@@ -127,16 +137,19 @@ void vTaskSensors(void *pvParameters)
 			// Write point
 			writePointToServer(sensor, data, pcTaskName, failed_try);
 
-			// if the number of successive fails are high, signal that the server is gone offline
+			// if the number of successive fails are high, signal that the server is
+			// gone offline
 			if (failed_try >= FAILED_ATT_THRES)
 			{
-				ticktime = xTaskGetTickCount(); // wait another CHECK_SERVER_STATUS_T minutes before checking again
+				ticktime = xTaskGetTickCount(); // wait another CHECK_SERVER_STATUS_T
+												// minutes before checking again
 				is_server_up = false;
 				// the T is 5s, with 6 failed attemps, we have 30s of unresponsivness
 			}
 		}
 
-		if (is_server_up == false and (debug_msk & (1 << debug_dbserver)) and (failed_try >= FAILED_ATT_THRES))
+		if (is_server_up == false and (debug_msk & (1 << debug_dbserver)) and
+			(failed_try >= FAILED_ATT_THRES))
 		{
 			id_n_talk(pcTaskName, "Sever not responding. Idling db task");
 		}
@@ -157,6 +170,7 @@ void vLEDs(void *pvParameters)
 	const char *pcTaskName = "vLEDs";
 	String rain = "";
 	dataOffline_t my_data_offline;
+	my_data_offline.co2 = 0;
 
 	String raining[] = {"rain", "thunderstorm", "drizzle"};
 
@@ -171,22 +185,33 @@ void vLEDs(void *pvParameters)
 
 	EventBits_t event_result, event_res;
 	TickType_t ticktime = xTaskGetTickCount();
+	TickType_t xLastRainCheck = ticktime;
+	TickType_t ticktime_buz_alarm = ticktime;
+
 	bool clk_24h_mode = false;
 
 	for (;;)
 	{
-		bool conf_active = false, wait_clk = false, valid_clk = false, clear_once = true, busy_led = false;
+		bool conf_active = false, wait_clk = false, valid_clk = false,
+			 clear_once = true, busy_led = false;
 
 		// request sensors data
 		xQueuePeek(xQueueOffline, (void *)&my_data_offline, 0);
 
 		// managing the clock mode
 		/*await valid_clk, conf_active, wait_clk event*/
-		event_result = xEventGroupWaitBits(handler_event, ((1 << CONF_ACTIVE_BIT_LED) | (1 << V_CLK_STATE_BIT_LED) | (1 << WAIT_CLK_BIT_LED)), pdFALSE, pdFALSE, 0);
+		event_result = xEventGroupWaitBits(handler_event,
+										   ((1 << CONF_ACTIVE_BIT_LED) |
+											(1 << V_CLK_STATE_BIT_LED) |
+											(1 << WAIT_CLK_BIT_LED)),
+										   pdFALSE, pdFALSE, 0);
 
-		(event_result & (1 << V_CLK_STATE_BIT_LED)) ? valid_clk = true : valid_clk = false;
-		(event_result & (1 << CONF_ACTIVE_BIT_LED)) ? conf_active = true : conf_active = false;
-		(event_result & (1 << WAIT_CLK_BIT_LED)) ? wait_clk = true : wait_clk = false;
+		(event_result & (1 << V_CLK_STATE_BIT_LED)) ? valid_clk = true
+													: valid_clk = false;
+		(event_result & (1 << CONF_ACTIVE_BIT_LED)) ? conf_active = true
+													: conf_active = false;
+		(event_result & (1 << WAIT_CLK_BIT_LED)) ? wait_clk = true
+												 : wait_clk = false;
 
 		if (valid_clk == true and conf_active == false and wait_clk == false)
 		{
@@ -202,8 +227,10 @@ void vLEDs(void *pvParameters)
 			if (xSemaphoreTake(xLCDAccess, portMAX_DELAY) == pdPASS)
 			{
 				/*await clear_one event*/
-				event_result = xEventGroupWaitBits(handler_event, ((1 << CLEAR_ONC_LED)), pdFALSE, pdFALSE, 0);
-				(event_result & (1 << CLEAR_ONC_LED)) ? clear_once = true : clear_once = false;
+				event_result = xEventGroupWaitBits(
+					handler_event, ((1 << CLEAR_ONC_LED)), pdFALSE, pdFALSE, 0);
+				(event_result & (1 << CLEAR_ONC_LED)) ? clear_once = true
+													  : clear_once = false;
 
 				/*peek on the queue*/
 				xQueueReceive(x24h_Mode, (void *)&clk_24h_mode, 0);
@@ -214,7 +241,9 @@ void vLEDs(void *pvParameters)
 			// date, temp, humi, co2
 			if (xSemaphoreTake(xLCDAccess, portMAX_DELAY) == pdPASS)
 			{
-				printIndoorLCD(my_data_offline, time_vars, was_co2, ticktime_date, ticktime_co2, ticktime_server, db_server_state, pcTaskName);
+				printIndoorLCD(my_data_offline, time_vars, was_co2, ticktime_date,
+							   ticktime_co2, ticktime_server, ticktime_buz_alarm,
+							   db_server_state, pcTaskName);
 				xSemaphoreGive(xLCDAccess);
 			}
 
@@ -227,7 +256,8 @@ void vLEDs(void *pvParameters)
 		}
 
 		// hot / cold
-		event_res = xEventGroupWaitBits(handler_event, (1 << LED_BUSY), pdFALSE, pdFALSE, 0);
+		event_res = xEventGroupWaitBits(handler_event, (1 << LED_BUSY), pdFALSE,
+										pdFALSE, 0);
 		(event_res & (1 << LED_BUSY)) ? busy_led = true : busy_led = false;
 
 		if (busy_led == false)
@@ -244,8 +274,12 @@ void vLEDs(void *pvParameters)
 			}
 		}
 
-		// raining or not
-		driveRainLed(rain, raining, (sizeof(raining) / sizeof(raining[0])));
+		// raining or not (check it every TM_CHECK_RAIN unit(s) of duration)
+		if ((xTaskGetTickCount() - xLastRainCheck) >= TM_CHECK_RAIN)
+		{
+			xLastRainCheck = xTaskGetTickCount();
+			driveRainLed(rain, raining, (sizeof(raining) / sizeof(raining[0])));
+		}
 
 		vTaskDelayUntil(&ticktime, LED_MS);
 	}
@@ -264,12 +298,14 @@ void vTaskOffline(void *pvParameters)
 		bool idle = false;
 		/**
 		 * recvd data from queue read offline data
-		 * rcv and clear the bit CONF_ACTIVE_BIT and SYSSTATE_IDLE_BIT, if idle, suspend yo self, if CONF_ACTIVE_BIT == 1, don't print smth
-		 * if idle state expire, someone will wake you up lol
+		 * rcv and clear the bit CONF_ACTIVE_BIT and SYSSTATE_IDLE_BIT, if idle,
+		 * suspend yo self, if CONF_ACTIVE_BIT == 1, don't print smth if idle state
+		 * expire, someone will wake you up lol
 		 */
 		// event listener
 
-		event_result = xEventGroupWaitBits(handler_event, ((1 << SYSSTATE_IDLE_BIT_OFF)), pdFALSE, pdFALSE, 0);
+		event_result = xEventGroupWaitBits(
+			handler_event, ((1 << SYSSTATE_IDLE_BIT_OFF)), pdFALSE, pdFALSE, 0);
 		(event_result & (1 << SYSSTATE_IDLE_BIT_OFF)) ? idle = true : idle = false;
 
 		if (idle == true)
@@ -277,8 +313,10 @@ void vTaskOffline(void *pvParameters)
 			vTaskSuspend(NULL);
 		}
 
-		event_result = xEventGroupWaitBits(handler_event, ((1 << CONF_ACTIVE_BIT_OFF)), pdFALSE, pdFALSE, 0);
-		(event_result & (1 << CONF_ACTIVE_BIT_OFF)) ? conf_active = true : conf_active = false;
+		event_result = xEventGroupWaitBits(
+			handler_event, ((1 << CONF_ACTIVE_BIT_OFF)), pdFALSE, pdFALSE, 0);
+		(event_result & (1 << CONF_ACTIVE_BIT_OFF)) ? conf_active = true
+													: conf_active = false;
 
 		offlineTaskPrint(conf_active, my_data, validated_state);
 
@@ -291,7 +329,8 @@ void vTaskOnline(void *pvParameters)
 	dataOnline_t my_data;
 
 	static String _id = "n";
-	bool conf_active, read_now = true, validated_state_now = false, validated_state_fcast = false;
+	bool conf_active, read_now = true, validated_state_now = false,
+					  validated_state_fcast = false;
 	EventBits_t event_result;
 
 	vTaskDelay(pdMS_TO_TICKS(500));
@@ -301,12 +340,14 @@ void vTaskOnline(void *pvParameters)
 		bool idle = false;
 		/**
 		 * recvd data from queue read offline data
-		 * rcv and clear the bit CONF_ACTIVE_BIT and SYSSTATE_IDLE_BIT, if idle, suspend yo self, if CONF_ACTIVE_BIT == 1, don't print smth
-		 * if idle state expire, someone will wake you up lol
+		 * rcv and clear the bit CONF_ACTIVE_BIT and SYSSTATE_IDLE_BIT, if idle,
+		 * suspend yo self, if CONF_ACTIVE_BIT == 1, don't print smth if idle state
+		 * expire, someone will wake you up lol
 		 */
 		// event listener
 
-		event_result = xEventGroupWaitBits(handler_event, ((1 << SYSSTATE_IDLE_BIT_ON)), pdFALSE, pdFALSE, 0);
+		event_result = xEventGroupWaitBits(
+			handler_event, ((1 << SYSSTATE_IDLE_BIT_ON)), pdFALSE, pdFALSE, 0);
 		(event_result & (1 << SYSSTATE_IDLE_BIT_ON)) ? idle = true : idle = false;
 
 		if (idle == true)
@@ -314,10 +355,13 @@ void vTaskOnline(void *pvParameters)
 			vTaskSuspend(NULL);
 		}
 
-		event_result = xEventGroupWaitBits(handler_event, ((1 << CONF_ACTIVE_BIT_ON)), pdFALSE, pdFALSE, 0);
-		(event_result & (1 << CONF_ACTIVE_BIT_ON)) ? conf_active = true : conf_active = false;
+		event_result = xEventGroupWaitBits(
+			handler_event, ((1 << CONF_ACTIVE_BIT_ON)), pdFALSE, pdFALSE, 0);
+		(event_result & (1 << CONF_ACTIVE_BIT_ON)) ? conf_active = true
+												   : conf_active = false;
 
-		onlineTaskPrint(conf_active, my_data, validated_state_now, validated_state_fcast, read_now, _id);
+		onlineTaskPrint(conf_active, my_data, validated_state_now,
+						validated_state_fcast, read_now, _id);
 
 		vTaskDelay(pdMS_TO_TICKS(ONLINE_MS));
 	}
@@ -351,7 +395,8 @@ void vDaemon(void *pvParameters)
 			// deep sleep with wake from specific time
 			if (debug_msk & (1 << debug_daemon))
 			{
-				id_n_talk(pcTaskName, "Going to sleep for " + (String)SLEEP_DURATION_M + "mins. LOL cya..");
+				id_n_talk(pcTaskName, "Going to sleep for " + (String)SLEEP_DURATION_M +
+										  "mins. LOL cya..");
 			}
 
 			if (xSemaphoreTake(xI2C, portMAX_DELAY) == pdPASS)
@@ -394,10 +439,13 @@ void vDaemon(void *pvParameters)
 		if (idle == true or hard_resume == true)
 		{
 			// every thing done once, idle on for every mode
-			xEventGroupSetBits(handler_event, ((1 << SYSSTATE_IDLE_BIT_OFF) | (1 << SYSSTATE_IDLE_BIT_ON)));
+			xEventGroupSetBits(handler_event, ((1 << SYSSTATE_IDLE_BIT_OFF) |
+											   (1 << SYSSTATE_IDLE_BIT_ON)));
 
-			event_result = xEventGroupWaitBits(handler_event, ((1 << CONF_ACTIVE_BIT_DAE)), pdFALSE, pdFALSE, 0);
-			(event_result & (1 << CONF_ACTIVE_BIT_DAE)) ? conf_active = true : conf_active = false;
+			event_result = xEventGroupWaitBits(
+				handler_event, ((1 << CONF_ACTIVE_BIT_DAE)), pdFALSE, pdFALSE, 0);
+			(event_result & (1 << CONF_ACTIVE_BIT_DAE)) ? conf_active = true
+														: conf_active = false;
 
 			idleSTAMode(conf_active, hard_resume, rep, check_go_idle_now);
 		}
@@ -408,10 +456,14 @@ void vDaemon(void *pvParameters)
 			// go idle mode
 			xQueueReceive(xIdle_T, (void *)&IDLE_TMS, 0);
 
-			if ((!(rep > 1)) and (createTimer(IDLE_TMS, timer_daemon, pcTaskName, "one-x-timer") == pdPASS))
+			if ((!(rep > 1)) and (createTimer(IDLE_TMS, timer_daemon, pcTaskName,
+											  "one-x-timer") == pdPASS))
 			{
 				// timer started and announce
-				xEventGroupSetBits(handler_event, ((1 << BTN_WAIT_MODE_BIT))); // going idle mode, don't check input state
+				xEventGroupSetBits(
+					handler_event,
+					((1 << BTN_WAIT_MODE_BIT))); // going idle mode, don't check input
+												 // state
 			}
 		}
 
@@ -477,17 +529,23 @@ void vTaskWManager(void *pvParameters)
 	WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
 	Serial.setDebugOutput(false);
 
-	new (&custom_field_apikey) WiFiManagerParameter("apikey", "Your API Key", "", customFieldLength, "placeholder=\"Enter your API key\"");
-	new (&custom_field_location) WiFiManagerParameter("location", "Your location", "", customFieldLength, "placeholder=\"eg. lat=xx.xxxx&lon=x.xxxx\"");
+	new (&custom_field_apikey)
+		WiFiManagerParameter("apikey", "Your API Key", "", customFieldLength,
+							 "placeholder=\"Enter your API key\"");
+	new (&custom_field_location)
+		WiFiManagerParameter("location", "Your location", "", customFieldLength,
+							 "placeholder=\"eg. lat=xx.xxxx&lon=x.xxxx\"");
 
 	wm.addParameter(&custom_field_apikey);
 	wm.addParameter(&custom_field_location);
 	wm.setSaveParamsCallback(saveParamCallback);
 
-	std::vector<const char *> menu = {"wifi", "info", "param", "sep", "restart", "exit"};
+	std::vector<const char *> menu = {"wifi", "info", "param",
+									  "sep", "restart", "exit"};
 	wm.setMenu(menu);
 
-	wm.setConfigPortalTimeout(PORTAL_TMT_MS); // auto close configportal after n seconds
+	wm.setConfigPortalTimeout(
+		PORTAL_TMT_MS); // auto close configportal after n seconds
 
 	// Create AP and wait for user to connect to it's own wifi
 	bool res = wm.autoConnect(AP_NAME, AP_PASWD); // password protected ap
@@ -504,8 +562,8 @@ void vTaskWManager(void *pvParameters)
 		reboot_it(5);
 	}
 
-	// make sure welcome message task finish just before this line, otherwise, deadlock lol
-	// at this point, ESP is connected to user desired wlan
+	// make sure welcome message task finish just before this line, otherwise,
+	// deadlock lol at this point, ESP is connected to user desired wlan
 	if (xSemaphoreTake(xLCDAccess, portMAX_DELAY) == pdPASS)
 	{
 		clear_lcd();
@@ -521,7 +579,8 @@ void vTaskWManager(void *pvParameters)
 		xSemaphoreGive(xLCDAccess);
 	}
 
-	// if the ESP wakes up with wlan already set, it will skip the portal step and jump here
+	// if the ESP wakes up with wlan already set, it will skip the portal step and
+	// jump here
 	readSysConfig();
 
 	if (xSemaphoreTake(xLCDAccess, portMAX_DELAY) == pdPASS)
@@ -594,7 +653,8 @@ void setup()
 	const char *ntpServer2 = "pool.ntp.org";
 	const char *timezone = "Europe/Paris";
 	const long gmt_offset = 3600;
-	const int daylight_offset = 0; // 3600;, for now, daylight saving ended. TODO:make it automatic
+	// for now, daylight saving ended. TODO:make it automatic
+	const int daylight_offset = 3600;
 
 	// put your setup code here, to run once:
 	int app_cpu = xPortGetCoreID();
@@ -629,17 +689,21 @@ void setup()
 	setenv("TZ", timezone, 1); // Set timezone
 	tzset();
 
-	// welcome task : show welcome message while connecting to wifi at the sametime (almost)
-	// these tasks have higher priority than setup, so setup will immedately get preempted
+	// welcome task : show welcome message while connecting to wifi at the
+	// sametime (almost) these tasks have higher priority than setup, so setup
+	// will immedately get preempted
 
-	xTaskCreatePinnedToCore(vTaskWelcome, "vTaskWelcome", 2048, nullptr, P_WM, &xWelcome, app_cpu);
+	xTaskCreatePinnedToCore(vTaskWelcome, "vTaskWelcome", 2048, nullptr, P_WM,
+							&xWelcome, app_cpu);
 	assert(xWelcome != nullptr);
 	// Wifi manager task
-	xTaskCreatePinnedToCore(vTaskWManager, "vTaskWManager", 4096, nullptr, P_WM, &xWM, app_cpu);
+	xTaskCreatePinnedToCore(vTaskWManager, "vTaskWManager", 4096, nullptr, P_WM,
+							&xWM, app_cpu);
 	assert(xWM != nullptr);
 
 	// wait for WIFIManager done flag
-	xEventGroupWaitBits(handler_event, (1 << WLAN_CONTD_BIT), pdFALSE, pdFALSE, portMAX_DELAY); // does not clear on exit
+	xEventGroupWaitBits(handler_event, (1 << WLAN_CONTD_BIT), pdFALSE, pdFALSE,
+						portMAX_DELAY); // does not clear on exit
 
 	// wireless LAN connected at this point
 	// setup mdns
@@ -652,7 +716,7 @@ void setup()
 	}
 	/* else
 	{
-		MDNS.addService("http", "tcp", 80);
+			MDNS.addService("http", "tcp", 80);
 	} */
 
 	touchAttachInterrupt(T0, callback_touch_wakeup, TOUCH_THRES);
@@ -660,7 +724,8 @@ void setup()
 	esp_sleep_enable_touchpad_wakeup();
 
 	boot_times += 1;
-	// id_n_talk(pcTaskName, "What happened? I were sleeping. Boot times: x" + (String)boot_times);
+	// id_n_talk(pcTaskName, "What happened? I were sleeping. Boot times: x" +
+	// (String)boot_times);
 
 	xQueueOverwrite(xQueueOffline, &data_offline);
 	xQueueOverwrite(xQueueOn_NOW, &data_online);
@@ -678,27 +743,37 @@ void setup()
 	digitalWrite(BUZZ, 0);
 
 	// CORE 1
-	/*Task_Name		Stack_size	 Task_Priority  Task_handler  Cores	*/
-	xTaskCreatePinnedToCore(vTaskSensors, "vTaskSensors", 4096, nullptr, P_SENSORS, &xSensor, app_cpu);
+	/*Task_Name		Stack_size	 Task_Priority  Task_handler  Cores
+	 */
+	xTaskCreatePinnedToCore(vTaskSensors, "vTaskSensors", 4096, nullptr,
+							P_SENSORS, &xSensor, app_cpu);
 	assert(xSensor != nullptr);
 	xTaskCreatePinnedToCore(vLEDs, "vLEDs", 4096, nullptr, P_LED, &xLed, app_cpu);
 	assert(xLed != nullptr);
-	xTaskCreatePinnedToCore(vTaskAPI, "vTaskAPI", 8192, nullptr, P_API, &xAPI, app_cpu);
+	xTaskCreatePinnedToCore(vTaskAPI, "vTaskAPI", 8192, nullptr, P_API, &xAPI,
+							app_cpu);
 	assert(xAPI != nullptr);
 
 	if (RebootOnClock == true)
 	{
 		// from RTC mem
-		// create on and off_line with low priority, in this way, setup cannot be preempted by these 2.
-		xTaskCreatePinnedToCore(vTaskOffline, "vTaskOffline", 4096, NULL, tskIDLE_PRIORITY, &xTaskOffline, app_cpu);
+		// create on and off_line with low priority, in this way, setup cannot be
+		// preempted by these 2.
+		xTaskCreatePinnedToCore(vTaskOffline, "vTaskOffline", 4096, NULL,
+								tskIDLE_PRIORITY, &xTaskOffline, app_cpu);
 		assert(xTaskOffline != nullptr);
-		xTaskCreatePinnedToCore(vTaskOnline, "vTaskOnline", 4096, NULL, tskIDLE_PRIORITY, &xTaskOnline, app_cpu);
+		xTaskCreatePinnedToCore(vTaskOnline, "vTaskOnline", 4096, NULL,
+								tskIDLE_PRIORITY, &xTaskOnline, app_cpu);
 		assert(xTaskOnline != nullptr);
 
 		// validate the mode now and tell them to idle
-		xEventGroupSetBits(handler_event, ((1 << V_CLK_STATE_BIT_SET) | (1 << V_CLK_STATE_BIT_LED) | (1 << SYSSTATE_IDLE_BIT_ON)) | (1 << SYSSTATE_IDLE_BIT_OFF));
+		xEventGroupSetBits(handler_event, ((1 << V_CLK_STATE_BIT_SET) |
+										   (1 << V_CLK_STATE_BIT_LED) |
+										   (1 << SYSSTATE_IDLE_BIT_ON)) |
+											  (1 << SYSSTATE_IDLE_BIT_OFF));
 
-		// we suspend them, they should suspend themselves, just in case the event arrives lately
+		// we suspend them, they should suspend themselves, just in case the event
+		// arrives lately
 		vTaskSuspend(xTaskOffline);
 		vTaskSuspend(xTaskOnline);
 
@@ -714,13 +789,16 @@ void setup()
 	else
 	{
 		// normal exec
-		xTaskCreatePinnedToCore(vTaskOffline, "vTaskOffline", 4096, NULL, P_OFFLINE, &xTaskOffline, app_cpu);
+		xTaskCreatePinnedToCore(vTaskOffline, "vTaskOffline", 4096, NULL, P_OFFLINE,
+								&xTaskOffline, app_cpu);
 		assert(xTaskOffline != nullptr);
-		xTaskCreatePinnedToCore(vTaskOnline, "vTaskOnline", 4096, NULL, P_ONLINE, &xTaskOnline, app_cpu);
+		xTaskCreatePinnedToCore(vTaskOnline, "vTaskOnline", 4096, NULL, P_ONLINE,
+								&xTaskOnline, app_cpu);
 		assert(xTaskOnline != nullptr);
 	}
 
-	xTaskCreatePinnedToCore(vDaemon, "vDaemon", 4096, NULL, P_DAEMON, &xTaskDaemon, app_cpu);
+	xTaskCreatePinnedToCore(vDaemon, "vDaemon", 4096, NULL, P_DAEMON,
+							&xTaskDaemon, app_cpu);
 	assert(xTaskDaemon != nullptr);
 
 	// Other stuff
@@ -731,24 +809,28 @@ void setup()
 
 	// init
 	menu_n.current_menu = 0;
-	int data_nexter = 0, config_msk = 30, config_T = 30, cnt = 0; // 1st index of the data
+	int data_nexter = 0, config_msk = 30, config_T = 30,
+		cnt = 0; // 1st index of the data
 	long current_param = 0;
 
-	TickType_t xLastWakeTime_c = 0, xTick_offline = 0, xTick_online = 0, xTick_wlan_state = 0, xtick_unknown = 0, last_detected_pir = 0;
+	TickType_t xLastWakeTime_c = 0, xTick_offline = 0, xTick_online = 0,
+			   xTick_wlan_state = 0, xtick_unknown = 0, last_detected_pir = 0;
 	TickType_t xLastLedOn = 0;
 	bool flicker_led = false, last_flick_state = LOW;
 
 	Btn myBtn(EXEC_BTN, PD);
 	btn_state_t STATES_T = {};
 	EventBits_t event_result;
-	bool clk_mode = false, clk_24_mode = false, chg_wlan = false, last_pir = true, pir_state = false, reboot_reconfd = false;
+	bool clk_mode = false, clk_24_mode = false, chg_wlan = false, last_pir = true,
+		 pir_state = false, reboot_reconfd = false;
 	bool ghost_timer = 0;
 
 	dataOnline_t my_data;
 	dataOffline_t my_data_off;
 
 	/**
-	 * after a btn interraction, should show the menu, thus signal all the other tasks that we are in menu config mode
+	 * after a btn interraction, should show the menu, thus signal all the other
+	 * tasks that we are in menu config mode
 	 *
 	 * Simple click: flip state e.g. on --> off
 	 * double click: move to next menu screen
@@ -760,19 +842,23 @@ void setup()
 	 * The menu is 6 pages
 	 * ranges from 0 to 5
 	 * 5 last menu, 0 the begining, aka page 1
-	 * each menu has 6 elements: like on off on off on off for on off mode, so on that page, a click cycle through them
+	 * each menu has 6 elements: like on off on off on off for on off mode, so on
+	 * that page, a click cycle through them
 	 *
 	 * data_nexter is the index to cycle throught the page options
 	 * after timemout, saves everything and exit
 	 */
 	for (;;)
 	{
-		bool valid_clk = false, valid_portal = false, tmr_flag = false, btn_wait_mode = false;
+		bool valid_clk = false, valid_portal = false, tmr_flag = false,
+			 btn_wait_mode = false;
 
 		// reading button state
 		// check if the system is idle or not by awaiting the btn_wait_mode bit
-		event_result = xEventGroupWaitBits(handler_event, ((1 << BTN_WAIT_MODE_BIT)), pdFALSE, pdFALSE, 0);
-		(event_result & (1 << BTN_WAIT_MODE_BIT)) ? btn_wait_mode = true : btn_wait_mode = false;
+		event_result = xEventGroupWaitBits(
+			handler_event, ((1 << BTN_WAIT_MODE_BIT)), pdFALSE, pdFALSE, 0);
+		(event_result & (1 << BTN_WAIT_MODE_BIT)) ? btn_wait_mode = true
+												  : btn_wait_mode = false;
 
 		if (btn_wait_mode == false)
 		{
@@ -788,22 +874,32 @@ void setup()
 				// when the click state is active try to get the mutex quickly.
 				broadcastConfMode();
 
-				// TODO: right now I have two cond. WAIT_CLK_BIT_LED and V_CLK_STATE_BIT_SET for the same clock, might want to optimize, V_CLK_STATE_BIT_SET seems to be the top now
-				// Clear the clock mode bit to disabe clock mode and get the mutex asap to display the menu
-				xEventGroupClearBits(handler_event, ((1 << V_CLK_STATE_BIT_SET) | (1 << V_CLK_STATE_BIT_LED)));
-				xEventGroupSetBits(handler_event, ((1 << WAIT_CLK_BIT_LED))); // suspend clock mode
+				// TODO: right now I have two cond. WAIT_CLK_BIT_LED and
+				// V_CLK_STATE_BIT_SET for the same clock, might want to optimize,
+				// V_CLK_STATE_BIT_SET seems to be the top now Clear the clock mode bit
+				// to disabe clock mode and get the mutex asap to display the menu
+				xEventGroupClearBits(handler_event, ((1 << V_CLK_STATE_BIT_SET) |
+													 (1 << V_CLK_STATE_BIT_LED)));
+				xEventGroupSetBits(handler_event,
+								   ((1 << WAIT_CLK_BIT_LED))); // suspend clock mode
 
-				// at this point, other tasks have stopped, so we an get the lcd mutex action, namely lcd showing thing
-				resolveInputs(menu_n, i, data_nexter, current_param, clk_24_mode, chg_wlan, clk_mode,
-							  valid_clk, ghost_timer, tmr_flag, STATES_T, config_T, pcTaskName, config_msk, xLastWakeTime_c);
+				// at this point, other tasks have stopped, so we an get the lcd mutex
+				// action, namely lcd showing thing
+				resolveInputs(menu_n, i, data_nexter, current_param, clk_24_mode,
+							  chg_wlan, clk_mode, valid_clk, ghost_timer, tmr_flag,
+							  STATES_T, config_T, pcTaskName, config_msk,
+							  xLastWakeTime_c);
 			}
 		}
 
 		// update countdown time (config menu)
 		/*event await tmr_flag, valid_clk*/
-		event_result = xEventGroupWaitBits(handler_event, ((1 << TIMER_FLAG_BIT) | (1 << V_CLK_STATE_BIT_SET)), pdFALSE, pdFALSE, 0);
+		event_result = xEventGroupWaitBits(
+			handler_event, ((1 << TIMER_FLAG_BIT) | (1 << V_CLK_STATE_BIT_SET)),
+			pdFALSE, pdFALSE, 0);
 		(event_result & (1 << TIMER_FLAG_BIT)) ? tmr_flag = true : tmr_flag = false;
-		(event_result & (1 << V_CLK_STATE_BIT_SET)) ? valid_clk = true : valid_clk = false;
+		(event_result & (1 << V_CLK_STATE_BIT_SET)) ? valid_clk = true
+													: valid_clk = false;
 
 		if (tmr_flag == true && valid_clk == false)
 		{
@@ -826,22 +922,29 @@ void setup()
 
 		// PIR LCD Backlit
 		/*event await valid_clk*/
-		event_result = xEventGroupWaitBits(handler_event, ((1 << V_CLK_STATE_BIT_SET)), pdFALSE, pdFALSE, 0);
-		(event_result & (1 << V_CLK_STATE_BIT_SET)) ? valid_clk = true : valid_clk = false;
+		event_result = xEventGroupWaitBits(
+			handler_event, ((1 << V_CLK_STATE_BIT_SET)), pdFALSE, pdFALSE, 0);
+		(event_result & (1 << V_CLK_STATE_BIT_SET)) ? valid_clk = true
+													: valid_clk = false;
 		pirLogic(pir_state, last_pir, last_detected_pir, valid_clk);
 
 		// update current running state on the server side
-		updateServerValues(xTick_offline, my_data_off, data_offline, xTick_online, my_data, on_now, on_fcast);
+		updateServerValues(xTick_offline, my_data_off, data_offline, xTick_online,
+						   my_data, on_now, on_fcast);
 
-		// dynamically change the exec mode : station vs clock (from web server) 0 sta, 1 : clk
+		// dynamically change the exec mode : station vs clock (from web server) 0
+		// sta, 1 : clk
 		clockOrStaMode();
 
 		/*warn on wlan troubles*/
-		wifiCoIssues(xTick_wlan_state, valid_clk, reboot_reconfd, xtick_unknown, cnt, xLastLedOn, flicker_led, last_flick_state);
+		wifiCoIssues(xTick_wlan_state, valid_clk, reboot_reconfd, xtick_unknown,
+					 cnt, xLastLedOn, flicker_led, last_flick_state);
 
 		/*event await valid_portal*/ // check start portal?
-		event_result = xEventGroupWaitBits(handler_event, ((1 << V_START_PORTAL_BIT_SET)), pdFALSE, pdFALSE, 0);
-		(event_result & (1 << V_START_PORTAL_BIT_SET)) ? valid_portal = true : valid_portal = false;
+		event_result = xEventGroupWaitBits(
+			handler_event, ((1 << V_START_PORTAL_BIT_SET)), pdFALSE, pdFALSE, 0);
+		(event_result & (1 << V_START_PORTAL_BIT_SET)) ? valid_portal = true
+													   : valid_portal = false;
 		checkCExecPortal(valid_portal);
 
 		vTaskDelay(pdMS_TO_TICKS(2));

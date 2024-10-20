@@ -44,7 +44,7 @@
 #define NOW 1
 #define FCAST 0
 // influx db
-#define INFLUXDB_URL "http://192.168.1.183:8086"
+#define INFLUXDB_URL "http://192.168.1.17:8086"
 
 #define INFLUXDB_BUCKET "esp32"
 #define CONFIG_FILE "/user_data.json"
@@ -63,6 +63,9 @@
 #define BUZZ 2
 #define PIR_BL 17
 #define SCD_CAL_TMS 1 * 60 * 1000 // 1 min for the co2 to reach \tau = 63%
+#define CO2_THRES 1800
+#define CO2_ALARM_REP_MM 10 * 60 * 1000 // 10 mins
+#define TM_CHECK_RAIN 1 * 60 * 1000		// 1 min
 
 // TASKS piority & period
 #define P_LED 1
@@ -102,7 +105,7 @@ extern int CLOCK_PENDING;
 #define WM_DONE 14
 #define SCD_CAL_DONE 19
 
-#define WAIT_CLK_BIT_LED 1    // WAITING clock for LED TASK
+#define WAIT_CLK_BIT_LED 1	  // WAITING clock for LED TASK
 #define V_CLK_STATE_BIT_LED 2 // clock valid bit LED TASK
 #define V_CLK_STATE_BIT_SET 3 // clock valid bit SETUP TASK
 #define CLEAR_ONC_LED 4
@@ -112,11 +115,11 @@ extern int CLOCK_PENDING;
 #define BTN_WAIT_MODE_BIT 5
 #define LED_BUSY 6
 
-#define WLAN_CONTD_BIT 7         // WLAN connected flag
-#define CONF_ACTIVE_BIT_OFF 8    // configuration mode for OFFLINE MODE TASK
-#define CONF_ACTIVE_BIT_ON 9     // configuration mode for ONLINE MODE TASK
+#define WLAN_CONTD_BIT 7		 // WLAN connected flag
+#define CONF_ACTIVE_BIT_OFF 8	 // configuration mode for OFFLINE MODE TASK
+#define CONF_ACTIVE_BIT_ON 9	 // configuration mode for ONLINE MODE TASK
 #define SYSSTATE_IDLE_BIT_OFF 15 // SYSTEM idle for OFFLINE MODE TASK
-#define SYSSTATE_IDLE_BIT_ON 16  // SYSTEM idle for ONLINE MODE TASK
+#define SYSSTATE_IDLE_BIT_ON 16	 // SYSTEM idle for ONLINE MODE TASK
 
 #define CONF_ACTIVE_BIT_LED 10 // configuration mode for LED TASK
 #define CONF_ACTIVE_BIT_SCR 11 // configuration mode for text scrolling
@@ -141,8 +144,8 @@ extern RTC_DATA_ATTR bool RebootOnClock;
 
 // OBJECTS DECLARATION
 extern AsyncWebServer server;
-extern LiquidCrystal_I2C lcd;   // LCD
-extern Adafruit_BME280 bme;     // I2C sensor
+extern LiquidCrystal_I2C lcd;	// LCD
+extern Adafruit_BME280 bme;		// I2C sensor
 extern SensirionI2CScd4x scd40; // co2+temp+humi sensor
 
 extern WiFiManager wm; // wifi manager
@@ -201,91 +204,91 @@ extern long config_set[MENUS][6];
 // STRUCTURES
 typedef struct data_t_online
 {
-    String apiKey;
-    String nameOfCity;
+	String apiKey;
+	String nameOfCity;
 
-    String city;
-    String description;
-    String date_text;
+	String city;
+	String description;
+	String date_text;
 
-    float tempMin;
-    float tempMax;
-    float temp;
-    float feels_like;
-    float windSpeed;
+	float tempMin;
+	float tempMax;
+	float temp;
+	float feels_like;
+	float windSpeed;
 
-    float pressure;
-    float humidity;
-    float clouds;
+	float pressure;
+	float humidity;
+	float clouds;
 
-    boolean forecast;
-    String relative;
+	boolean forecast;
+	String relative;
 } dataOnline_t;
 
 typedef struct on_data_t
 {
-    String description;
-    float temp;
-    float feels_like;
-    float windSpeed;
-    float pressure;
-    float humidity;
-    float clouds;
-    String city;
+	String description;
+	float temp;
+	float feels_like;
+	float windSpeed;
+	float pressure;
+	float humidity;
+	float clouds;
+	String city;
 } on_Data_t;
 
 typedef struct data_t2_offline
 {
-    float temp;
-    float temp2;
-    float humi;
-    float pressure;
-    float altitude;
-    uint16_t co2;
+	float temp;
+	float temp2;
+	float humi;
+	float pressure;
+	float altitude;
+	uint16_t co2;
 } dataOffline_t;
 
 typedef struct state
 {
-    char in;
-    char out_n;
-    char out_f;
+	char in;
+	char out_n;
+	char out_f;
 } state_t;
 
 typedef enum debug
 {
-    debug_sensors,
-    debug_wm,
-    debug_setup,
-    debug_api,
-    debug_dbserver,
-    debug_time,
-    debug_daemon
+	debug_sensors,
+	debug_wm,
+	debug_setup,
+	debug_api,
+	debug_dbserver,
+	debug_time,
+	debug_daemon
 } debug_t;
 
 typedef struct main_menu
 {
-    int current_menu;
-    String menu[MENUS][2] = {{"CLOCK mode", ""}, {"LCD Speed", "ms"}, {"Sleep T", "ms"}, {"Deep-sleep T", "mins"}, {"Am/PM", ""}, {"Chg WLAN", ""}};
+	int current_menu;
+	String menu[MENUS][2] = {{"CLOCK mode", ""}, {"LCD Speed", "ms"}, {"Sleep T", "ms"}, {"Deep-sleep T", "mins"}, {"Am/PM", ""}, {"Chg WLAN", ""}};
 } menu_t;
 
 typedef struct btn_state
 {
-    bool flag[INPUTS_STATES];
+	bool flag[INPUTS_STATES];
 } btn_state_t;
 
 typedef struct last_reading
 {
-    float temp;
-    float humi;
-    float pressure;
-    float alti;
+	float temp;
+	float humi;
+	float pressure;
+	float alti;
 } last_reading_t;
 
 typedef struct time_stuff
 {
-    int timemm_int, ringhh, ringmm, timehh_int, timedd_int, timehh_24_int;
-    char timehh[3], timehh_24[3], timemm[3], timedd[3], timemomo[15];
-    bool pm;
+	int timemm_int, ringhh, ringmm, timehh_int, timedd_int, timehh_24_int;
+	char timehh[3], timehh_24[3], timemm[3], timedd[3], timemomo[15];
+	bool pm;
 } time_var_t;
 
 // UTILS FUNCTIONS
@@ -298,7 +301,7 @@ void fcastLogic(const char *pcTaskName, const String serverPath_forecast, dataOn
 // SETUP
 void defineSynchroStuff();
 void handleMenuLogic(menu_t &menu_n, const int i, int &data_nexter, long &current_param, bool &clk_24_mode, bool &chg_wlan,
-                     bool &clk_mode, bool &valid_clk, bool &ghost_timer, bool &tmr_flag);
+					 bool &clk_mode, bool &valid_clk, bool &ghost_timer, bool &tmr_flag);
 void readBtnState(Btn &myBtn, btn_state_t &STATES_T);
 void showCountDown(const int config_msk);
 void applyMenuSave(menu_t &menu_n, long &current_param, bool &clk_24_mode, bool &chg_wlan, bool &clk_mode);
@@ -306,7 +309,7 @@ void exitBeforeTimeout(bool &clk_mode, bool &valid_clk, bool &ghost_timer, bool 
 
 // CLOCK
 void printIndoorLCD(const dataOffline_t my_data_offline, const time_var_t time_vars, bool &was_co2,
-                    int &ticktime_date, int &ticktime_co2, int &ticktime_server, bool &db_server_state, const char *pcTaskName);
+					int &ticktime_date, int &ticktime_co2, int &ticktime_server, TickType_t &ticktime_buz_alarm, bool &db_server_state, const char *pcTaskName);
 void printOutdoorLCD(const float outTemp);
 void getClockData(time_var_t &time_vars);
 void printTimeLCD(const time_var_t time_vars, bool clear_once, bool clk_24h_mode, bool &last_blank);
@@ -333,7 +336,7 @@ void server_init_stuff(on_Data_t &on_now, on_Data_t &on_fcast, dataOffline_t &da
 void getServer_State(bool &state, const char *pcTaskName);
 bool writePointToServer(Point &sensor, dataOffline_t data, const char *pcTaskName, int &failed_try);
 void updateServerValues(TickType_t xTick_offline, dataOffline_t &my_data_off, dataOffline_t &data_offline,
-                        TickType_t xTick_online, dataOnline_t &my_data, on_Data_t &on_now, on_Data_t &on_fcast);
+						TickType_t xTick_online, dataOnline_t &my_data, on_Data_t &on_now, on_Data_t &on_fcast);
 
 // SYS & CO
 String getParam(String name);
@@ -342,13 +345,13 @@ void readSysConfig();
 bool createTimer(const long duration, TimerCallbackFunction_t(call_func_ptr), const char *pcTaskName, const char *timerName);
 void clockOrStaMode();
 void resolveInputs(menu_t &menu_n, const int i, int &data_nexter, long &current_param, bool &clk_24_mode, bool &chg_wlan,
-                   bool &clk_mode, bool &valid_clk, bool &ghost_timer, bool &tmr_flag, btn_state_t &STATES_T,
-                   const int config_T, const char *pcTaskName, int &config_msk, TickType_t &xLastWakeTime_c);
+				   bool &clk_mode, bool &valid_clk, bool &ghost_timer, bool &tmr_flag, btn_state_t &STATES_T,
+				   const int config_T, const char *pcTaskName, int &config_msk, TickType_t &xLastWakeTime_c);
 void checkCExecPortal(const bool valid_portal);
 void pirLogic(bool &pir_state, bool &last_pir, TickType_t &last_detected_pir, const bool valid_clk);
 void idleSTAMode(bool conf_active, bool &hard_resume, int &rep, bool &check_go_idle_now);
 void wifiCoIssues(TickType_t &xTick_wlan_state, const bool valid_clk, bool &reboot_reconfd,
-                  TickType_t &xtick_unknown, int &cnt, TickType_t &xLastLedOn, bool &flicker_led, bool &last_flick_state);
+				  TickType_t &xtick_unknown, int &cnt, TickType_t &xLastLedOn, bool &flicker_led, bool &last_flick_state);
 void taskNotifMan(uint32_t rv, uint32_t &rv_msk, bool &idle);
 void dispMenu(menu_t &menu_n, bool &clk_24_mode, bool &chg_wlan, bool &clk_mode);
 void launchMenuTimout(const bool tmr_flag, const bool ghost_timer, const int config_T, const char *pcTaskName, int &config_msk, TickType_t &xLastWakeTime_c);
