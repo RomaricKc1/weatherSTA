@@ -9,8 +9,16 @@ SensirionI2CScd4x scd40;				// co2+temp+humi I2C sensor
 
 WiFiManager wm; // wifi manager
 ESP32Time rtc;
-InfluxDBClient db_client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET,
-						 INFLUXDB_TOKEN /*, InfluxDbCloud2CACert */);
+InfluxDBClient db_client;
+// (INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET,
+// 						 INFLUXDB_TOKEN /*,
+// InfluxDbCloud2CACert */);
+
+long user_gmt_offset(0), user_daylight_offset(0);
+String user_timezone("Europe/Paris"), user_ntp_server("pool.ntp.org"),
+	user_ntp_server2("europe.pool.ntp.org");
+String user_influx_token(""), user_influx_org(""),
+	user_influx_url(INFLUXDB_URL), user_influx_bucket(INFLUXDB_BUCKET);
 /////////////////////////////////////////////////////////////////////////////////////
 
 // TASKS
@@ -103,7 +111,7 @@ void vTaskSensors(void *pvParameters)
 
 			// humi of bme
 			data.temp = bme.readTemperature() - temp_offset;
-			data.humi = bme.readHumidity();
+			data.humi_bme = bme.readHumidity();
 			data.pressure = bme.readPressure() / 100.0F;
 			data.altitude = bme.readAltitude(SEALEVELPRESSURE_HPA_2);
 
@@ -279,6 +287,13 @@ void vLEDs(void *pvParameters)
 		{
 			xLastRainCheck = xTaskGetTickCount();
 			driveRainLed(rain, raining, (sizeof(raining) / sizeof(raining[0])));
+		}
+
+		if (time_vars.timehh_24_int >= 22 || time_vars.timehh_24_int < 6)
+		{
+			// extend backlit when at night time
+			int val = 11000;
+			xQueueOverwrite(xXtend_BL_T, &val);
 		}
 
 		vTaskDelayUntil(&ticktime, LED_MS);
@@ -514,7 +529,13 @@ void vTaskWelcome(void *pvParameters)
 
 void vTaskWManager(void *pvParameters)
 {
-	WiFiManagerParameter custom_field_apikey, custom_field_location;
+	WiFiManagerParameter custom_field_apikey, custom_field_location,
+		custom_field_ntp_s, custom_field_ntp_s2;
+	WiFiManagerParameter custom_field_tz, custom_field_gmt_off,
+		custom_field_dyl_off, custom_field_influx_url;
+	WiFiManagerParameter custom_field_influx_token, custom_field_influx_org,
+		custom_field_influx_bucket;
+
 	const char *pcTaskName = "vTaskWManager";
 	int customFieldLength = 40;
 
@@ -535,9 +556,44 @@ void vTaskWManager(void *pvParameters)
 	new (&custom_field_location)
 		WiFiManagerParameter("location", "Your location", "", customFieldLength,
 							 "placeholder=\"eg. lat=xx.xxxx&lon=x.xxxx\"");
+	new (&custom_field_tz)
+		WiFiManagerParameter("timezone", "Your TimeZone", "", customFieldLength,
+							 "placeholder=\"eg. Europe/Paris\"");
+	new (&custom_field_gmt_off)
+		WiFiManagerParameter("gmt_offset", "Your GMT offset", "",
+							 customFieldLength, "placeholder=\"eg. 3600\"");
+	new (&custom_field_dyl_off)
+		WiFiManagerParameter("dyl_offset", "Your daylight saving offset", "",
+							 customFieldLength, "placeholder=\"eg. 3600\"");
+	new (&custom_field_ntp_s)
+		WiFiManagerParameter("ntp_s", "NTP server", "", customFieldLength,
+							 "placeholder=\"eg. pool.ntp.org\"");
+	new (&custom_field_ntp_s2)
+		WiFiManagerParameter("ntp_s2", "NTP server 2", "", customFieldLength,
+							 "placeholder=\"eg. pool.ntp.org\"");
+	new (&custom_field_influx_org) WiFiManagerParameter(
+		"influx_org", "Influx DB org", "", customFieldLength, "placeholder=\"\"");
+	new (&custom_field_influx_token) WiFiManagerParameter(
+		"influx_token", "Influx token", "", 101, "placeholder=\"\"");
+	new (&custom_field_influx_url)
+		WiFiManagerParameter("influx_url", "Influx DB url", "", customFieldLength,
+							 "placeholder=\"http://192.168.1.17:8086\"");
+	new (&custom_field_influx_bucket)
+		WiFiManagerParameter("influx_bucket", "Influx DB bucket", "",
+							 customFieldLength, "placeholder=\"\"");
 
 	wm.addParameter(&custom_field_apikey);
 	wm.addParameter(&custom_field_location);
+	wm.addParameter(&custom_field_tz);
+	wm.addParameter(&custom_field_gmt_off);
+	wm.addParameter(&custom_field_dyl_off);
+	wm.addParameter(&custom_field_ntp_s);
+	wm.addParameter(&custom_field_ntp_s2);
+	wm.addParameter(&custom_field_influx_org);
+	wm.addParameter(&custom_field_influx_token);
+	wm.addParameter(&custom_field_influx_url);
+	wm.addParameter(&custom_field_influx_bucket);
+
 	wm.setSaveParamsCallback(saveParamCallback);
 
 	std::vector<const char *> menu = {"wifi", "info", "param",
@@ -582,6 +638,17 @@ void vTaskWManager(void *pvParameters)
 	// if the ESP wakes up with wlan already set, it will skip the portal step and
 	// jump here
 	readSysConfig();
+
+
+	// printf("wm:: %ld -> %ld\n", user_gmt_offset, user_daylight_offset);
+
+	configTime(user_gmt_offset, user_daylight_offset, user_ntp_server.c_str(),
+			   user_ntp_server2.c_str());
+	setenv("TZ", user_timezone.c_str(), 1); // Set timezone
+	tzset();
+
+	db_client = InfluxDBClient(user_influx_url, user_influx_org,
+							   user_influx_bucket, user_influx_token);
 
 	if (xSemaphoreTake(xLCDAccess, portMAX_DELAY) == pdPASS)
 	{
@@ -646,15 +713,7 @@ void setup()
 {
 	// debug_msk |= ((1 << debug_time) | (1 << debug_sensors));
 	// debug_msk |= (1 << debug_setup);
-
 	const char *pcTaskName = "vSetup";
-
-	const char *ntpServer1 = "europe.pool.ntp.org";
-	const char *ntpServer2 = "pool.ntp.org";
-	const char *timezone = "Europe/Paris";
-	const long gmt_offset = 3600;
-	// for now, daylight saving ended. TODO:make it automatic
-	const int daylight_offset = 3600;
 
 	// put your setup code here, to run once:
 	int app_cpu = xPortGetCoreID();
@@ -685,10 +744,6 @@ void setup()
 	lcdSetup(); // LCD
 	// TODO: check if inited well
 
-	configTime(gmt_offset, daylight_offset, ntpServer1, ntpServer2);
-	setenv("TZ", timezone, 1); // Set timezone
-	tzset();
-
 	// welcome task : show welcome message while connecting to wifi at the
 	// sametime (almost) these tasks have higher priority than setup, so setup
 	// will immedately get preempted
@@ -697,7 +752,7 @@ void setup()
 							&xWelcome, app_cpu);
 	assert(xWelcome != nullptr);
 	// Wifi manager task
-	xTaskCreatePinnedToCore(vTaskWManager, "vTaskWManager", 4096, nullptr, P_WM,
+	xTaskCreatePinnedToCore(vTaskWManager, "vTaskWManager", 8092, nullptr, P_WM,
 							&xWM, app_cpu);
 	assert(xWM != nullptr);
 
@@ -716,7 +771,7 @@ void setup()
 	}
 	/* else
 	{
-			MDNS.addService("http", "tcp", 80);
+					MDNS.addService("http", "tcp", 80);
 	} */
 
 	touchAttachInterrupt(T0, callback_touch_wakeup, TOUCH_THRES);
@@ -825,6 +880,10 @@ void setup()
 		 pir_state = false, reboot_reconfd = false;
 	bool ghost_timer = 0;
 
+	bl_mgmt_t bl_mgmt = {};
+	bl_mgmt.extended_bl = true;
+	bl_mgmt.up_to_T = 510;
+
 	dataOnline_t my_data;
 	dataOffline_t my_data_off;
 
@@ -926,7 +985,10 @@ void setup()
 			handler_event, ((1 << V_CLK_STATE_BIT_SET)), pdFALSE, pdFALSE, 0);
 		(event_result & (1 << V_CLK_STATE_BIT_SET)) ? valid_clk = true
 													: valid_clk = false;
-		pirLogic(pir_state, last_pir, last_detected_pir, valid_clk);
+
+		bl_mgmt.up_to_T = 510;
+		xQueuePeek(xXtend_BL_T, (void *)&bl_mgmt.up_to_T, 0);
+		pirLogic(pir_state, last_pir, bl_mgmt, last_detected_pir, valid_clk);
 
 		// update current running state on the server side
 		updateServerValues(xTick_offline, my_data_off, data_offline, xTick_online,

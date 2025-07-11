@@ -7,9 +7,9 @@ This project is a versatile weather station and clock, designed to run on an ESP
 <img src="./img/clock_mode.png" alt="Clock mode" width="400"/>
 
 
-Dashboard example            |  Enclosure
-:-------------------------:|:-------------------------:
-<img src="./img/dashboard.png" alt="Clock mode" width="400"/>  |  <img src="./img/enclosure.png" alt="Clock mode" width="400"/>
+Dashboard example            |  Enclosure: Box | Enclosure: Lid
+:-------------------------:|:-------------------------:|-------------------------:
+<img src="./img/dashboard.png" alt="Dashboard" width="400"/>  |  <img src="./img/box.png" alt="Box" width="400"/> |  <img src="./img/lid.png" alt="Box" width="400"/>
 
 
 ## Features
@@ -30,7 +30,7 @@ Dashboard example            |  Enclosure
 
 7. **User Interface**: A multipurpose button allows system configuration without needing to access the web-based interface.
 
-8. **Enclosure**: The project includes STL files for a 3D printable enclosure measuring 7.00 x 14.00 x 9.00 cm.
+8. **Enclosure**: The project includes STL files for a 3D printable enclosure.
 
 ## Sensors Used
 
@@ -128,8 +128,8 @@ WIFI connection lost: `LED cold` and `LED hot` blink for 5s.
 ## Future Work
 
 ### TODO
-- [ ] Include the influx db token and ORG in the system config file through WiFiManager
-- [ ] Include the NTP servers, timezone in the config file too
+- [x] Include the influx db token and ORG in the system config file through WiFiManager
+- [x] Include the NTP servers, timezone in the config file too
 - [ ] Reduce the filesystem size by checking the CSS and JS coverage
 - [ ] OTA updates
 

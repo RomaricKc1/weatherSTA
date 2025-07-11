@@ -42,7 +42,7 @@ long config_set[MENUS][6] = {
 };
 
 // OTHERS
-int debug_msk = 0;
+int debug_msk = 0b00000000;
 
 // SYNCHRO
 SemaphoreHandle_t xLCDAccess = nullptr;
@@ -63,6 +63,7 @@ QueueHandle_t xPortalMode = nullptr;
 QueueHandle_t x24h_Mode = nullptr;
 QueueHandle_t xIdle_T = nullptr;
 QueueHandle_t xInfluxDB_state = nullptr;
+QueueHandle_t xXtend_BL_T = nullptr;
 
 TaskHandle_t xTaskOnline = nullptr;
 TaskHandle_t xTaskOffline = nullptr;
@@ -276,6 +277,9 @@ void defineSynchroStuff()
 
 	xInfluxDB_state = xQueueCreate(MAILBOX_QUEUE, sizeof(bool));
 	assert(xInfluxDB_state);
+
+	xXtend_BL_T = xQueueCreate(MAILBOX_QUEUE, sizeof(int));
+	assert(xXtend_BL_T);
 }
 
 void handleMenuLogic(menu_t &menu_n, const int i, int &data_nexter,
@@ -1223,6 +1227,7 @@ void update_off_values(dataOffline_t &struct_2, const dataOffline_t &off_data)
 {
 	struct_2.temp = off_data.temp;
 	struct_2.humi = off_data.humi;
+	struct_2.humi_bme = off_data.humi_bme;
 	struct_2.altitude = off_data.altitude;
 	struct_2.pressure = off_data.pressure;
 	struct_2.co2 = off_data.co2;
@@ -1278,7 +1283,7 @@ void server_init_stuff(on_Data_t &on_now, on_Data_t &on_fcast,
 	server.on("/intemperature", HTTP_GET, [&](AsyncWebServerRequest *request)
 			  { request->send(200, "text/plain", (String)data_offline.temp); });
 	server.on("/inhumidity", HTTP_GET, [&](AsyncWebServerRequest *request)
-			  { request->send(200, "text/plain", (String)data_offline.humi); });
+			  { request->send(200, "text/plain", (String)data_offline.humi_bme); });
 	server.on("/inco2", HTTP_GET, [&](AsyncWebServerRequest *request)
 			  { request->send(200, "text/plain", (String)data_offline.co2); });
 	server.on("/inpressure", HTTP_GET, [&](AsyncWebServerRequest *request)
@@ -1290,8 +1295,7 @@ void server_init_stuff(on_Data_t &on_now, on_Data_t &on_fcast,
 	server.on("/intemperature2", HTTP_GET, [&](AsyncWebServerRequest *request)
 			  { request->send(200, "text/plain", (String)data_offline.temp2); });
 
-	// 				O
-	// U							T
+	// 				O U	T
 	server.on("/outtemperature_now", HTTP_GET,
 			  [&](AsyncWebServerRequest *request)
 			  {
@@ -1493,9 +1497,7 @@ void readSysConfig()
 		if (xSemaphoreTake(xLCDAccess, portMAX_DELAY) == pdPASS)
 		{
 			clear_lcd();
-			scroll_text(
-				"        API KEY and Location required. Opening config portal...",
-				LCD_SPD, 0);
+			scroll_text("        API KEY and Location required. Opening config portal...", LCD_SPD, 0);
 			scroll_text("        will timeout after 6mins, starting now.", LCD_SPD,
 						1);
 			xSemaphoreGive(xLCDAccess);
@@ -1542,11 +1544,12 @@ void readSysConfig()
 		reboot_it(5);
 	}
 
-	StaticJsonDocument<128> u_data;
+	StaticJsonDocument<1024> u_data;
 	DeserializationError error = deserializeJson(u_data, config);
 
 	if (error and (xSemaphoreTake(xLCDAccess, portMAX_DELAY) == pdPASS))
 	{
+		id_n_talk("setup", error.c_str());
 		// unable to deserialize
 		if (xSemaphoreTake(xI2C, portMAX_DELAY) == pdPASS)
 		{
@@ -1562,12 +1565,30 @@ void readSysConfig()
 
 	const char *tmp_key = u_data["api_key"];
 	const char *tmp_loc = u_data["location"];
+	const char *tmp_gmt_off = u_data["gmt_offset"];
+	const char *tmp_dyl_off = u_data["dyl_offset"];
+	const char *tmp_tz = u_data["timezone"];
+	const char *tmp_ntp_s = u_data["ntp_s"];
+	const char *tmp_ntp_s2 = u_data["ntp_s2"];
+	const char *tmp_influx_org = u_data["influx_org"];
+	const char *tmp_influx_token = u_data["influx_token"];
+	const char *tmp_influx_bucket = u_data["influx_bucket"];
+	const char *tmp_influx_url = u_data["influx_url"];
 
 	config.close();
 
 	// put this to variable
 	user_api_key = (String)tmp_key;
 	user_location_coordinate = (String)tmp_loc;
+	user_gmt_offset = atol(tmp_gmt_off);
+	user_daylight_offset = atol(tmp_dyl_off);
+	user_timezone = (String)tmp_tz;
+	user_ntp_server = (String)tmp_ntp_s;
+	user_ntp_server2 = (String)tmp_ntp_s2;
+	user_influx_org = (String)tmp_influx_org;
+	user_influx_token = (String)tmp_influx_token;
+	user_influx_url = (String)tmp_influx_url;
+	user_influx_bucket = (String)tmp_influx_bucket;
 
 	if (xSemaphoreTake(xLCDAccess, portMAX_DELAY) == pdPASS)
 	{
@@ -1721,7 +1742,6 @@ void dispMenu(menu_t &menu_n, bool &clk_24_mode, bool &chg_wlan,
 	default:
 		break;
 	}
-	// ??? dunno
 	lcd.setCursor(10, 1); // center a little bit
 	lcd.print(menu_n.menu[menu_n.current_menu][1]);
 
@@ -1817,6 +1837,7 @@ void clockOrStaMode()
 	}
 
 	break;
+
 	case 0:
 	{
 		if (debug_msk & (1 << debug_setup))
@@ -1843,7 +1864,18 @@ void clockOrStaMode()
 
 		CLOCK_PENDING = -2; // -2, neither sta nor clock so don't care + didn't ask
 	}
+	break;
 
+	case 2:
+	{
+		bl_on = true;
+		if (debug_msk & (1 << debug_setup))
+		{
+			id_n_talk("vSetup", "WM portal mode");
+		}
+		xEventGroupSetBits(handler_event, (1 << V_START_PORTAL_BIT_SET));
+		CLOCK_PENDING = -2;
+	}
 	break;
 
 	default:
@@ -2023,7 +2055,7 @@ void wifiCoIssues(TickType_t &xTick_wlan_state, const bool valid_clk,
 	}
 }
 
-void pirLogic(bool &pir_state, bool &last_pir, TickType_t &last_detected_pir,
+void pirLogic(bool &pir_state, bool &last_pir, bl_mgmt_t &that_mgmt, TickType_t &last_detected_pir,
 			  const bool valid_clk)
 {
 	if (valid_clk == false)
@@ -2042,6 +2074,9 @@ void pirLogic(bool &pir_state, bool &last_pir, TickType_t &last_detected_pir,
 		{
 			lcd.backlight();
 			xSemaphoreGive(xI2C);
+
+			that_mgmt.turned_on = true;
+			that_mgmt.extended_T = 0;
 		}
 		xSemaphoreGive(xLCDAccess);
 
@@ -2060,9 +2095,17 @@ void pirLogic(bool &pir_state, bool &last_pir, TickType_t &last_detected_pir,
 	if (((xTaskGetTickCount() - last_detected_pir) > PIR_COUNTER_DELAY) and
 		xSemaphoreTake(xLCDAccess, 200) == pdPASS) // added 1 s to it
 	{
-		if (xSemaphoreTake(xI2C, 200) == pdPASS)
+		if (that_mgmt.turned_on == true and xSemaphoreTake(xI2C, 200) == pdPASS)
 		{
-			lcd.noBacklight();
+			if (that_mgmt.extended_bl == false or that_mgmt.extended_T > pdMS_TO_TICKS(that_mgmt.up_to_T))
+			{
+				lcd.noBacklight();
+
+				that_mgmt.extended_T = 0;
+				that_mgmt.turned_on = false;
+			}
+			that_mgmt.extended_T++;
+			// printf("xtending %ux\n", that_mgmt.extended_T);
 			xSemaphoreGive(xI2C);
 		}
 		xSemaphoreGive(xLCDAccess);
@@ -2153,11 +2196,29 @@ void saveParamCallback()
 	// id_n_talk("SaveW param", "saveParamCallback fired");
 	String tmp_key = getParam("apikey");
 	String tmp_loc = getParam("location");
+	String tmp_tz = getParam("timezone");
+	String tmp_gmt_off = getParam("gmt_offset");
+	String tmp_dyl_off = getParam("dyl_offset");
+	String tmp_ntp_s = getParam("ntp_s");
+	String tmp_ntp_s2 = getParam("ntp_s2");
+	String tmp_influx_org = getParam("influx_org");
+	String tmp_influx_token = getParam("influx_token");
+	String tmp_influx_url = getParam("influx_url");
+	String tmp_influx_bucket = getParam("influx_bucket");
 
 	// save them into the SPIFFS
-	StaticJsonDocument<128> u_data;
+	StaticJsonDocument<512> u_data;
 	u_data["api_key"] = tmp_key;
 	u_data["location"] = tmp_loc;
+	u_data["gmt_offset"] = tmp_gmt_off;
+	u_data["dyl_offset"] = tmp_dyl_off;
+	u_data["timezone"] = tmp_tz;
+	u_data["ntp_s"] = tmp_ntp_s;
+	u_data["ntp_s2"] = tmp_ntp_s2;
+	u_data["influx_org"] = tmp_influx_org;
+	u_data["influx_token"] = tmp_influx_token;
+	u_data["influx_bucket"] = tmp_influx_bucket;
+	u_data["influx_url"] = tmp_influx_url;
 
 	auto config = SPIFFS.open(CONFIG_FILE, "w");
 	if (!config)

@@ -55,7 +55,7 @@
 #define PIR_COUNTER_DELAY 6000
 #define EXEC_BTN 27
 #define TOUCH_THRES 40
-#define temp_offset 0
+#define temp_offset 1
 #define LED_RAIN_NOW 5
 #define LED_HOT 18
 #define LED_COLD 19
@@ -135,6 +135,10 @@ extern int CLOCK_PENDING;
 // DECLARATIONS
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+extern long user_gmt_offset, user_daylight_offset;
+extern String user_timezone, user_ntp_server, user_ntp_server2;
+extern String user_influx_token, user_influx_org, user_influx_url, user_influx_bucket;
+
 // RTC RAM DATA
 extern RTC_DATA_ATTR float SEALEVELPRESSURE_HPA_2; // this will be updated when esp goes online
 extern RTC_DATA_ATTR int boot_times;
@@ -176,6 +180,7 @@ extern QueueHandle_t xPortalMode;
 extern QueueHandle_t x24h_Mode;
 extern QueueHandle_t xIdle_T;
 extern QueueHandle_t xInfluxDB_state;
+extern QueueHandle_t xXtend_BL_T;
 
 extern TaskHandle_t xTaskOnline;
 extern TaskHandle_t xTaskOffline;
@@ -244,6 +249,7 @@ typedef struct data_t2_offline
 	float humi;
 	float pressure;
 	float altitude;
+	float humi_bme;
 	uint16_t co2;
 } dataOffline_t;
 
@@ -253,6 +259,14 @@ typedef struct state
 	char out_n;
 	char out_f;
 } state_t;
+
+typedef struct input_bl_mgmt_t
+{
+	unsigned int extended_T = 0;
+	unsigned int up_to_T;
+	bool extended_bl;
+	bool turned_on = true;
+} bl_mgmt_t;
 
 typedef enum debug
 {
@@ -348,7 +362,7 @@ void resolveInputs(menu_t &menu_n, const int i, int &data_nexter, long &current_
 				   bool &clk_mode, bool &valid_clk, bool &ghost_timer, bool &tmr_flag, btn_state_t &STATES_T,
 				   const int config_T, const char *pcTaskName, int &config_msk, TickType_t &xLastWakeTime_c);
 void checkCExecPortal(const bool valid_portal);
-void pirLogic(bool &pir_state, bool &last_pir, TickType_t &last_detected_pir, const bool valid_clk);
+void pirLogic(bool &pir_state, bool &last_pir, bl_mgmt_t &that_mgmt, TickType_t &last_detected_pir, const bool valid_clk);
 void idleSTAMode(bool conf_active, bool &hard_resume, int &rep, bool &check_go_idle_now);
 void wifiCoIssues(TickType_t &xTick_wlan_state, const bool valid_clk, bool &reboot_reconfd,
 				  TickType_t &xtick_unknown, int &cnt, TickType_t &xLastLedOn, bool &flicker_led, bool &last_flick_state);
