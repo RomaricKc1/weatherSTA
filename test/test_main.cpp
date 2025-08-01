@@ -1,5 +1,7 @@
-#include <Arduino.h>
 #include <unity.h>
+
+#ifdef Arduino
+#include <Arduino.h>
 
 String STR_TO_TEST;
 
@@ -59,3 +61,5 @@ void setup()
 void loop()
 {
 }
+
+#endif

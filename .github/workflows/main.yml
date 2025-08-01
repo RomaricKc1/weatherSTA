@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+  workflow_dispatch:
+
+jobs:
+  build_test:
+    name: "Main build and test using -> '${{ matrix.os}}'"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Run PlatformIO
+        run: |
+          platformio run
+
+      - name: Download firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware_file
+          path: |
+            .pio/build/*/firmware.bin
+            .pio/build/*/firmware.elf
+
+      - name: Run PlatformIO test
+        run: |
+          platformio test -e host
+
+      - name: Run PlatformIO native check
+        run: |
+          platformio check -e host
+
+      - name: Run PlatformIO check
+        run: |
+          platformio check
+
+  deps:
+    name: "Checking deps -> '${{ matrix.os}}'"
+    needs: build_test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Check dependencies
+        run: platformio pkg list
+
+      - name: Check out-dated dependencies
+        run: platformio pkg outdated
