@@ -1,4 +1,4 @@
-name: main
+name: main and security
 
 on:
   push:
@@ -126,3 +126,33 @@ jobs:
                   print(f"\n{k} Symbols\n")
               for item in v:
                   print(item)
+
+  flawfinder:
+    name: Flawfinder security checks
+    needs: build_test
+    runs-on: ubuntu-latest
+
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Flawfinder Scan
+        uses: david-a-wheeler/flawfinder@2.0.19
+        with:
+          arguments: "--sarif ./"
+          output: "flawfinder_results.sarif"
+
+      - name: Upload analysis results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ./flawfinder_results.sarif
+
+      - name: Download code analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: sarif_file
+          path: ./flawfinder_results.sarif

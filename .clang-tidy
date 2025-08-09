@@ -1,0 +1,30 @@
+FormatStyle: file
+Checks: >
+  *,
+  -cppcoreguidelines-init-variables,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+
+  -llvmlibc-callee-namespace,
+  -llvmlibc-implementation-in-namespace,
+
+  -readability-identifier-length,
+  #-readability-function-cognitive-complexity,
+
+  -fuchsia-trailing-return,
+  -fuchsia-default-arguments-calls,
+
+  -altera-unroll-loops,
+  -altera-struct-pack-align,
+  -altera-id-dependent-backward-branch,
+
+CheckOptions:
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.EnumCase: CamelCase
+  readability-identifier-naming.EnumPrefix: E_
+  readability-identifier-naming.EnumConstantCase: UPPER_CASE
+  readability-identifier-naming.FunctionCase: camelBack
+  readability-identifier-naming.NamespaceCase: CamelCase
+  readability-identifier-naming.NamespacePrefix: N_
+  readability-identifier-naming.StructPrefix: S_
+  readability-identifier-naming.StructCase: CamelCase
