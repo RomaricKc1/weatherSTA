@@ -1,7 +1,7 @@
 #ifndef CONFIGS_HPP
 #define CONFIGS_HPP
 
-constexpr std::string_view FIRMWARE_VERSION{"2025.08"};
+constexpr std::string_view FIRMWARE_VERSION{"25.08.1"};
 
 // influx db
 constexpr std::string_view DEVICE{"ESP32"};
