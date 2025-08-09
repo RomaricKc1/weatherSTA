@@ -1,7 +1,9 @@
 #include <unity.h>
 
 #ifdef Arduino
+#include "sensors.cpp"
 #include <Arduino.h>
+#include <commons.hpp>
 
 String STR_TO_TEST;
 
@@ -13,6 +15,18 @@ void setUp(void) {
 void tearDown(void) {
     // clean stuff up here
     STR_TO_TEST = "";
+}
+
+void test_rain_str(void) {
+    TEST_ASSERT_EQUAL(true, N_Sensors::rainingStrMatch("rain"));
+    TEST_ASSERT_EQUAL(
+        true, N_Sensors::rainingStrMatch("thunderstorm with heavy rain "));
+
+    TEST_ASSERT_EQUAL(true, N_Sensors::rainingStrMatch("shower drizzle"));
+}
+
+void test_no_rain_str(void) {
+    TEST_ASSERT_EQUAL(false, N_Sensors::rainingStrMatch("pain"));
 }
 
 void test_string_concat(void) {
@@ -43,11 +57,14 @@ void test_string_replace(void) {
     TEST_ASSERT_EQUAL_STRING("Hello, world?", STR_TO_TEST.c_str());
 }
 
-void setup()
-{
+void setup() {
     delay(2000); // service delay
     UNITY_BEGIN();
 
+    setUp();
+
+    RUN_TEST(test_rain_str);
+    RUN_TEST(test_no_rain_str);
     RUN_TEST(test_string_concat);
     RUN_TEST(test_string_substring);
     RUN_TEST(test_string_index_of);
@@ -58,8 +75,6 @@ void setup()
     UNITY_END(); // stop unit testing
 }
 
-void loop()
-{
-}
+void loop() {}
 
 #endif

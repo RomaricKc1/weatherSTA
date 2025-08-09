@@ -1,149 +1,147 @@
-#include "btn.h"
+#include "btn.hpp"
 
-#include <Arduino.h>
+namespace N_Btn {
+    Btn::Btn() : pin{PIN_INVALID} {}
 
-Btn::Btn(/* args */) { this->pin = -1; }
-
-Btn::Btn(const uint8_t pin, uint8_t mode) {
-    this->pin = pin;
-
-    if (mode == PU) {
-        pinMode(this->pin, INPUT_PULLUP);
-        this->btnPressed = 0;
-    } else if (mode == PD) {
-        pinMode(this->pin, INPUT_PULLDOWN);
-        this->btnPressed = 1;
+    Btn::Btn(const int8_t pin, bool mode) : pin(pin) {
+        if (mode == PU) {
+            pinMode(pin, INPUT_PULLUP);
+            btnPressed = 0;
+        } else if (mode == PD) {
+            pinMode(pin, INPUT_PULLDOWN);
+            btnPressed = 1;
+        }
+        flag = NA;
     }
-    this->flag = NA;
-}
 
-Btn::~Btn() {}
+    auto Btn::getBtnState() const -> uint32_t { return flag; }
 
-int Btn::getBtn_state(void) { return this->flag; }
+    void Btn::clearBtnState() { flag = NA; }
 
-void Btn::clearBtn_state(void) { this->flag = NA; }
-
-void Btn::tick(void) {
-    if (this->pin > 0) {
-        tick(digitalRead(this->pin) == btnPressed);
+    void Btn::newState(E_FSM new_state) {
+        prev_state = state;
+        state      = new_state;
     }
-}
 
-void Btn::newState(FSM_t new_state) {
-    this->prev_state = this->state;
-    this->state = new_state;
-}
+    void Btn::tick() {
+        if (pin > 0) {
+            tick(digitalRead(pin) == btnPressed);
+        }
+    }
 
-void Btn::tick(uint8_t activeLevel) {
-    unsigned long now = millis(); // current (relative) time in msecs.
-    unsigned long waitTime = (now - this->start_T);
+    void Btn::tick(bool activeLevel) {
+        tick_args.now      = millis();
+        tick_args.waitTime = tick_args.now - start_T;
 
-    // Implementation of the state machine
-    switch (state) {
-    case Btn::INIT:
-        // waiting for level to become active.
-        if (activeLevel == 1) {
-            newState(Btn::DOWN);
-            start_T = now;
-            n_click = 0;
-        } // if
-        break;
+        switch (state) {
+            case INIT: {
+                // waiting for level to become active.
+                if (activeLevel) {
+                    newState(DOWN);
+                    start_T = tick_args.now;
+                    n_click = 0;
+                }
+            } break;
 
-    case Btn::DOWN:
-        // waiting for level to become inactive.
-        if ((activeLevel == 0) && (waitTime < debT)) {
+            case DOWN: {
+                // waiting for level to become inactive.
+                if (!activeLevel and (tick_args.waitTime < debT)) {
+                    // bouncing.
+                    newState(prev_state);
+                } else if (!activeLevel) {
+                    newState(UP);
+                    start_T = tick_args.now;
+                } else if (activeLevel and (tick_args.waitTime > pressT)) {
+                    newState(PRESS);
+                }
+
+            } break;
+
+            case COUNT: {
+                // debounce time is over, count clicks
+                if (activeLevel) {
+                    // button is down again
+                    newState(DOWN);
+                    start_T = tick_args.now;
+                } else if ((tick_args.waitTime > clickT) or
+                           (n_click == max_click)) {
+                    // now we know how many clicks have been made.
+                    switch (n_click) {
+                        case 1: {
+                            // this was 1 click only.
+                            flag = BTN_CLICK;
+                        } break;
+                        case 2: {
+                            // this was a 2 click sequence.
+                            flag = BTN_X2_CLICK;
+                        } break;
+                        case MAX_CLICKS_ALLOWED: {
+                            // this was a multi click sequence.
+                            flag = BTN_X3_CLICK;
+                        } break;
+                        default: {
+                            break;
+                        }
+                    }
+                    reset();
+                }
+            } break;
+
+            case UP: {
+                // btn not pushed
+                tickUp();
+            } break;
+
+            case PRESS: {
+                // waiting for pin being release after long press.
+                tickPress();
+            } break;
+
+            case RELEASED: {
+                // button was released.
+                tickReleased();
+            } break;
+
+            default: {
+                // unknownreset state machine
+                newState(INIT);
+            } break;
+        }
+    }
+
+    void Btn::tickUp() {
+        if (activeLevel and (tick_args.waitTime < debT)) {
             // bouncing.
             newState(prev_state);
-        } else if (activeLevel == 0) {
-            newState(Btn::UP);
-            start_T = now;
-        } else {
-            if ((activeLevel == 1) && (waitTime > pressT)) {
-                newState(Btn::PRESS);
-            }
+        } else if (tick_args.waitTime >= debT) {
+            // count as a short button down
+            n_click++;
+            newState(COUNT);
         }
-        break;
+    }
 
-    case Btn::UP:
-        // btn not pushed
-        if ((activeLevel == 1) && (waitTime < debT)) {
-            // bouncing.
-            newState(prev_state);
-        } else {
-            if (waitTime >= debT) {
-                // count as a short button down
-                n_click++;
-                newState(Btn::COUNT);
-            }
+    void Btn::tickPress() {
+        if (!activeLevel) {
+            newState(RELEASED);
+            start_T = tick_args.now;
         }
-        break;
+        // else, still the button is pressed
+    }
 
-    case Btn::COUNT:
-        // debounce time is over, count clicks
-        if (activeLevel == 1) {
-            // button is down again
-            newState(Btn::DOWN);
-            start_T = now;
-        } else if ((waitTime > clickT) || (n_click == max_click)) {
-            // now we know how many clicks have been made.
-
-            if (n_click == 1) {
-                // this was 1 click only.
-                this->flag = BTN_CLICK;
-                if (click_foo)
-                    click_foo();
-            } else if (n_click == 2) {
-                // this was a 2 click sequence.
-                this->flag = BTN_X2_CLICK;
-                if (x2_click_foo)
-                    x2_click_foo();
-            } else {
-                // this was a multi click sequence.
-                this->flag = BTN_X3_CLICK;
-                if (x_click_foo)
-                    x_click_foo();
-            }
-            reset();
-        }
-        break;
-
-    case Btn::PRESS:
-        // waiting for pin being release after long press.
-        if (activeLevel == 0) {
-            newState(Btn::RELEASED);
-            start_T = now;
-        } else {
-            // still the button is pressed
-            ;
-        }
-        break;
-
-    case Btn::RELEASED:
-        // button was released.
-        if ((activeLevel == 1) && (waitTime < debT)) {
+    void Btn::tickReleased() {
+        if (activeLevel and (tick_args.waitTime < debT)) {
             // bouncing.
             newState(prev_state); // go back
-        } else {
-            if (waitTime >= debT) {
-                this->flag = BTN_PRESS;
-                if (press_foo)
-                    press_foo();
-                reset();
-            }
+        } else if (tick_args.waitTime >= debT) {
+            flag = BTN_PRESS;
+            reset();
         }
-        break;
-
-    default:
-        // unknownreset state machine
-        newState(Btn::INIT);
-        break;
     }
-}
 
-void Btn::reset(void) {
-    this->state = INIT;
-    this->prev_state = INIT;
-    this->n_click = 0;
-    this->start_T = 0;
-    // this->flag       = NA;
-}
+    void Btn::reset() {
+        state      = INIT;
+        prev_state = INIT;
+        n_click    = 0;
+        start_T    = 0;
+    }
+} // namespace N_Btn

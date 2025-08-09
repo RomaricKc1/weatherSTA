@@ -1,0 +1,52 @@
+name: Draft release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version"
+        required: true
+jobs:
+  draft-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Run PlatformIO build native and build file system
+        run: |
+          platformio run
+          platformio run --target buildfs
+          mkdir firmware-out
+          mv .pio/build/esp32dev/firmware.{elf,bin} firmware-out
+          mv .pio/build/esp32dev/partitions.bin firmware-out
+          mv .pio/build/esp32dev/spiffs.bin firmware-out
+
+      - name: Create firmware tar
+        run: |
+          tar jcvf weatherSTA-compiled-firmware-v${{ github.event.inputs.version }}.tar.xz firmware-out/*
+
+      - name: Draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: v${{ github.event.inputs.version }}
+          files: weatherSTA-compiled-firmware-v${{ github.event.inputs.version }}.tar.xz
+          fail_on_unmatched_files: true

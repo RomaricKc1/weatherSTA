@@ -1,135 +1,221 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>myWeather1.1.0</title>
-
-    <link rel="stylesheet" type="text/css" href="w3.css">
-    <script type="text/javascript" src="jquery-3.6.0.min.js"></script>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WeatherSTA</title>
     <script type="text/javascript" src="script.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: #f4f4f4;
+      }
+      .card {
+        border-radius: 12px;
+        padding: 16px;
+        margin: 10px;
+        text-align: center;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        background-color: white;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+      }
+      .blue {
+        background: linear-gradient(90deg, #2196f3, #21cbf3);
+        color: white;
+        width: 100%;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        width: 100%;
+        max-width: 600px;
+      }
+      .select-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+      }
+      .select {
+        width: 80%;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        margin-right: 10px;
+        transition: border-color 0.2s;
+      }
+      .select:focus {
+        border-color: #2196f3;
+        outline: none;
+      }
+      .button {
+        background-color: #2196f3;
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition:
+          background-color 0.3s,
+          transform 0.2s;
+      }
+      .button:hover {
+        background-color: #1e88e5;
+        transform: translateY(-1px);
+      }
+    </style>
+  </head>
 
-</head>
-
-<body>
-
-    <div class="w3-card w3-blue w3-padding-small w3-center">
-        <h1>WEATHER STATION</h1>
+  <body>
+    <!-- ///////////////MAIN//////////////// -->
+    <div class="card blue">
+      <h1>WEATHER STATION <span id="firmware_version">v?</span></h1>
     </div>
-    <div class="w3-margin w3-center w3-card w3-padding-0">
-        <h4>Time TZ <span id="last_ds">0</span></h4>
-        <h4>woke-up times <span id="wk_times">0</span> time(s)</h4>
-    </div>
-    <div class="w3-card w3-blue w3-padding-small w3-center">
-        <h4>INDOORS</h4>
+
+    <div class="card">
+      <h4>Time TZ <span id="last_ds">0</span></h4>
+      <h4>woke-up times <span id="wk_times">0</span> time(s)</h4>
     </div>
 
-    <div id="col-1">
-        <div class="w3-margin w3-center w3-card w3-padding-24">
-            <h4>Temperature: <span id="intemperature">0</span>°C / Humidity: <span id="inhumidity">0</span>% / Co2: <span id="inco2">0</span>ppm</h4>
-        </div>
+    <!-- ///////////////INDOORS//////////////// -->
+    <div class="card blue">
+      <h4>INDOORS</h4>
     </div>
 
-    <div id="col-2">
-        <div class="w3-margin w3-center w3-card w3-padding-24">
-            <h4>Pressure: <span id="inpressure">0</span>hPa / Altitude: <span id="inaltitude">0</span>m / Temperature2: <span id="intemperature2">0</span>°C</h4>
-        </div>
+    <div class="grid">
+      <!-- /////////////// temperature & humi & co2 levels  -->
+      <div class="card">
+        <h4>
+          Temperature: <span id="intemperature">0</span>°C / Humidity:
+          <span id="inhumidity">0</span>% / Co2: <span id="inco2">0</span>ppm
+        </h4>
+      </div>
+
+      <!-- /////////////// pressure & altitude & temperature sensor 2  -->
+      <div class="card">
+        <h4>
+          Pressure: <span id="inpressure">0</span>hPa / Altitude:
+          <span id="inaltitude">0</span>m / Temperature sensor2:
+          <span id="intemperature2">0</span>°C
+        </h4>
+      </div>
     </div>
 
-    <div class="w3-card w3-blue w3-padding-small w3-center">
-        <h4>OUTDOORS NOW \FCAST</h4>
-        <h4>City <span id="outcity"></span>
+    <!-- ///////////////OUTDOORS//////////////// -->
+    <div class="card blue">
+      <h4>City: <span id="outcity"></span></h4>
+      <h4>OUTDOORS NOW | OUTDOORS FCAST</h4>
     </div>
 
+    <div class="grid">
+      <!-- /////////////// temperature & feels like & humi  -->
+      <div class="card">
+        <h4>
+          Temperature: <span id="outtemperature_now">0</span>°C / Feels Like:
+          <span id="outfeelslike_now">0</span>°C / Humidity:
+          <span id="outhumidity_now">0</span>%
+        </h4>
+      </div>
+      <div class="card">
+        <h4>
+          Temperature: <span id="outtemperature_fcast">0</span>°C / Feels Like:
+          <span id="outfeelslike_fcast">0</span>°C / Humidity:
+          <span id="outhumidity_fcast">0</span>%
+        </h4>
+      </div>
 
-    <div id="col-1">
-        <div class="w3-margin w3-center w3-card w3-padding-24">
-            <h4>Temperature: <span id="outtemperature_now">0</span>°C / Feels Like: <span
-                    id="outfeelslike_now">0</span>°C / Humidity: <span id="outhumidity_now">0</span>%</h4>
-        </div>
+      <!-- /////////////// pressure & cloud coverage -->
+      <div class="card">
+        <h4>
+          Pressure: <span id="outpressure_now">0</span>hPa / Cloud coverage:
+          <span id="outclouds_fcast">0</span>%
+        </h4>
+      </div>
+      <div class="card">
+        <h4>
+          Pressure: <span id="outpressure_fcast">0</span>hPa / Cloud coverage:
+          <span id="outclouds_fcast">0</span>%
+        </h4>
+      </div>
 
-        <div class="w3-margin w3-center w3-card w3-padding-24">
-            <h4>Pressure: <span id="outpressure_now">0</span>hPa / Cloud coverage: <span id="outclouds_now">0</span>%
-            </h4>
-        </div>
-        <div class="w3-margin w3-center w3-card w3-padding-24">
-            <h4>Description: <span id="outdescription_now">0</span></h4>
-        </div>
-        <div class="w3-margin w3-center w3-card w3-padding-24">
-            <h4>WindSpeed: <span id="outwindspeed_now">0</span>m/s</h4>
-        </div>
+      <!-- /////////////// wind speed -->
+      <div class="card">
+        <h4>WindSpeed: <span id="outwindspeed_now">0</span>m/s</h4>
+      </div>
+      <div class="card">
+        <h4>WindSpeed: <span id="outwindspeed_fcast">0</span>m/s</h4>
+      </div>
+
+      <!-- /////////////// desc -->
+      <div class="card">
+        <h4>Description: <span id="outdescription_now">0</span></h4>
+      </div>
+      <div class="card">
+        <h4>Description: <span id="outdescription_fcast">0</span></h4>
+      </div>
     </div>
 
-    <div id="col-2">
-
-        <div class="w3-margin w3-center w3-card w3-padding-24">
-            <h4>Temperature: <span id="outtemperature_fcast">0</span>°C / Feels Like: <span
-                    id="outfeelslike_fcast">0</span>°C / Humidity: <span id="outhumidity_fcast">0</span>%</h4>
-        </div>
-
-        <div class="w3-margin w3-center w3-card w3-padding-24">
-            <h4>Pressure: <span id="outpressure_fcast">0</span>hPa / Cloud coverage: <span
-                    id="outclouds_fcast">0</span>%</h4>
-        </div>
-        <div class="w3-margin w3-center w3-card w3-padding-24">
-            <h4>Description: <span id="outdescription_fcast">0</span></h4>
-        </div>
-        <div class="w3-margin w3-center w3-card w3-padding-24">
-            <h4>WindSpeed: <span id="outwindspeed_fcast">0</span>m/s</h4>
-        </div>
+    <!-- ///////////////SETTINGS//////////////// -->
+    <div class="card blue">
+      <h4>Settings</h4>
     </div>
 
-    <div class="w3-card w3-blue w3-padding-small w3-center">
-        <h4>Settings</h4>
-    </div>
-    <div class="w3-margin w3-center w3-card w3-padding-24">
-        <h6>Clock/Weather mode</h6>
-        <select class="w3-select" style="width: 80%;" id="running_mode">
-            <option value="" disabled selected>Clock/Weather/Portal mode</option>
-
-            <option value="0">Weather</option>
-            <option value="1">Clock</option>
-            <option value="2">WM Portal</option>
-
+    <!-- /////////////// mode selector  -->
+    <div class="card" style="margin-top: 20px; width: 100%">
+      <h6>Clock/Weather mode</h6>
+      <div class="select-container">
+        <select class="select" id="running_mode">
+          <option value="" disabled selected>Clock/Weather/Portal mode</option>
+          <option value="0">Weather</option>
+          <option value="1">Clock</option>
+          <option value="2">WM Portal</option>
         </select>
-        <button id="v_running_mode" class="w3-button w3-white w3-border w3-small w3-ripple w3-wide">Validate</button>
+        <button id="v_running_mode" class="button">Send</button>
+      </div>
 
-        <h6>Deep-sleep duration</h6>
-        <select class="w3-select" style="width: 80%;" id="d_slp_duration">
-            <option value="" disabled selected>Deep-sleep duration</option>
-
-            <option value="1">1 m</option>
-            <option value="5">5 m</option>
-            <option value="10">10 m</option>
-            <option value="15">15 m</option>
-            <option value="30">30 m</option>
-            <option value="60">1 h</option>
-
-            <option value="15">default (15 m)</option>
+      <!-- /////////////// deep sleep duration selector  -->
+      <h6>Deep-sleep duration</h6>
+      <div class="select-container">
+        <select class="select" id="d_slp_duration">
+          <option value="" disabled selected>Deep-sleep duration</option>
+          <option value="1">1 m</option>
+          <option value="5">5 m</option>
+          <option value="10">10 m</option>
+          <option value="15">15 m</option>
+          <option value="30">30 m</option>
+          <option value="60">1 h</option>
+          <option value="15">default (15 m)</option>
         </select>
-        <button id="v_d_slp_duration" class="w3-button w3-white w3-border w3-small w3-ripple w3-wide">Validate</button>
+        <button id="v_d_slp_duration" class="button">Send</button>
+      </div>
 
-        <h6>LCD scrolling speed</h6>
-        <select class="w3-select" style="width: 80%;" id="lcd_scrl">
-            <option value="" disabled selected>LCD scrolling speed</option>
-
-            <option value="200">200 ms</option>
-            <option value="250">250 ms</option>
-            <option value="300">300 ms</option>
-            <option value="350">350 ms</option>
-            <option value="400">400 ms</option>
-            <option value="500">500 ms</option>
-
-            <option value="250">default (250 ms)</option>
+      <!-- /////////////// lcd scroll speed selector  -->
+      <h6>LCD scrolling speed</h6>
+      <div class="select-container">
+        <select class="select" id="lcd_scrl">
+          <option value="" disabled selected>LCD scrolling speed</option>
+          <option value="200">200 ms</option>
+          <option value="250">250 ms</option>
+          <option value="300">300 ms</option>
+          <option value="350">350 ms</option>
+          <option value="400">400 ms</option>
+          <option value="500">500 ms</option>
+          <option value="250">default (250 ms)</option>
         </select>
-        <button id="v_lcd_scrl" class="w3-button w3-white w3-border w3-small w3-ripple w3-wide">Validate</button>
-
+        <button id="v_lcd_scrl" class="button">Send</button>
+      </div>
     </div>
-
-
-
-
-</body>
-
+  </body>
 </html>

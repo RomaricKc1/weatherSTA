@@ -1,4 +1,4 @@
-name: CI
+name: main
 
 on:
   push:
@@ -10,12 +10,8 @@ on:
 
 jobs:
   build_test:
-    name: "Main build and test using -> '${{ matrix.os}}'"
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
+    name: "Main build and test"
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -34,41 +30,53 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
-      - name: Run PlatformIO
+      - name: Run PlatformIO build native
         run: |
           platformio run
+
+      - name: Build file system image
+        run: |
+          platformio run --target buildfs
+          ls -lht .pio/build/*/spiffs.bin
+
+      - name: Run PlatformIO test host
+        run: |
+          platformio test -e host
+
+      - name: Run PlatformIO check native
+        run: |
+          platformio check
+
+      - name: Used dependencies
+        run: platformio pkg list
+
+      - name: Check for out-dated dependencies
+        run: platformio pkg outdated
 
       - name: Download firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: firmware_file
+          name: firmware_files
           path: |
-            .pio/build/*/firmware.bin
             .pio/build/*/firmware.elf
+            .pio/build/*/firmware.bin
+            .pio/build/*/partitions.bin
+            .pio/build/*/spiffs.bin
 
-      - name: Run PlatformIO test
-        run: |
-          platformio test -e host
-
-      - name: Run PlatformIO native check
-        run: |
-          platformio check -e host
-
-      - name: Run PlatformIO check
-        run: |
-          platformio check
-
-  deps:
-    name: "Checking deps -> '${{ matrix.os}}'"
+  inspectFirmwareMem:
+    name: firmware memory usage
     needs: build_test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
 
       - uses: actions/setup-python@v5
         with:
@@ -77,8 +85,44 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
-      - name: Check dependencies
-        run: platformio pkg list
+      - name: Run PlatformIO build native
+        run: |
+          platformio run
 
-      - name: Check out-dated dependencies
-        run: platformio pkg outdated
+      - name: Inspect Firmware memory usage
+        shell: python
+        run: |
+          import subprocess
+
+          nm_path: str = "~/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-nm"
+          bin_path: str = ".pio/build/esp32dev/firmware.elf "
+          awk_cmd: str = r"""awk '{
+                            if ($2 == "T");
+                        else if ($2 == "D") printf "%s %.3f KB -> %s\n", $3, $1/1024, "Initialized data";
+                        else if ($2 == "B") printf "%s %.3f KB -> %s\n", $3, $1/1024, "BSS";
+                        else if ($2 == "R") printf "%s %.3f KB -> %s\n", $3, $1/1024, "Read only data";
+                        else if ($2 == "A") printf "%s %.3f KB -> %s\n", $3, $1/1024, "Absolue";
+                        else if ($2 == "C") printf "%s %.3f KB -> %s\n", $3, $1/1024, "Common";
+                        else if ($2 == "G") printf "%s %.3f KB -> %s\n", $3, $1/1024, "Small initialized";
+                        else if ($2 == "S") printf "%s %.3f KB -> %s\n", $3, $1/1024, "Small uninitialized";
+                        else if ($2 == "N") printf "%s %.3f KB -> %s\n", $3, $1/1024, "Debugging";
+                        else if ($2 == "R") printf "%s %.3f KB -> %s\n", $3, $1/1024, "Read only";
+                        else if ($2 == "U") printf "%s %.3f KB -> %s\n", $3, $1/1024, "Undefined";
+                    }'"""
+          cmd: str = f"{nm_path} -Crtd --size-sort {bin_path} | {awk_cmd}"
+          proc = subprocess.Popen([cmd], stdout=subprocess.PIPE, shell=True)
+          (out, _) = proc.communicate()
+          list_data: list = out.decode().splitlines()
+          entries_dict: dict[str, list] = {}
+          for entry in list_data:
+              this_type = str(entry).split("->")[1]
+              if this_type not in entries_dict:
+                  entries_dict[this_type] = [entry]
+              else:
+                  entries_dict[this_type].append(entry)
+          old_key: str = ""
+          for k, v in entries_dict.items():
+              if k != old_key:
+                  print(f"\n{k} Symbols\n")
+              for item in v:
+                  print(item)

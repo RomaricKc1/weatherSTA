@@ -11,18 +11,38 @@ Dashboard example            |  Enclosure: Box | Enclosure: Lid
 :-------------------------:|:-------------------------:|-------------------------:
 <img src="./img/dashboard.png" alt="Dashboard" width="400"/>  |  <img src="./img/box.png" alt="Box" width="400"/> |  <img src="./img/lid.png" alt="Box" width="400"/>
 
+<details>
+<summary>Click to view the results displayed on the browser</summary>
+
+<img src="./img/webSTA.jpg" alt="webview" width="200"/>
+
+</details>
+
 ## Getting Started
 
 > [!IMPORTANT]
-> Build the filesystem image, the firmware and upload them to the ESP32. You can also simply download the firmware from the build artifact and flash it.
+> Download the already compiled firmware(`.hex, .bin, the partitions.bin and the spiffs`) from the `release page` and flash it to your `ESP32`. 
 >
-> Boot the ESP and connect to the created WIFI network `"STA esp"`. The default password is in the ```others.cpp``` (`P@55w0rd`).
+> Alternatively, you can build it from source by yourself.
 >
-> Connect the ESP to the desired WIFI network, and proceed to enter the required parameters and then reboot. `Voilà`.
+> Boot the ESP and connect to the created WIFI network `"STA esp"`. The default password (`P@55w0rd`) is in the `configs.hpp` header file.
+>
+> Connect the ESP to the desired WIFI network in the wifimanager portal, then reboot to validate the access point. After that, you'll have to reconnect to the portal in the `setup` page, to enter the required configuration parameters. After that, the esp will reboot and you'll be all set. `Voilà`.
 
+### Build Steps
+```bash
+# build and upload file system
+platformio run --target uploadfs -e esp32dev
+# build and upload firmware
+platformio run --target upload -e esp32dev 
+```
 
 > [!NOTE]
 > You can access the web server via `http://weather_sta.local` or by looking up the ip addressed assigned to the esp32 and going to `http://[ip_addr]`
+>
+> Many of the configuration options can be modified in the `configs.hpp`. Such as timing related, `ntp` servers and `timezone` etc.
+>
+> Almost the essentials configs can be done dynamically. After the firmware has been built, you can use the wifi manager portal to set the value as you wish.
 
 ## Features
 
@@ -52,28 +72,6 @@ Dashboard example            |  Enclosure: Box | Enclosure: Lid
 
 More in `platformio.ini` file.
 
-## Project Tree
-
-```
-.
-├── data
-│   └── web server related files
-├── img
-│   └── images
-├── include
-│   ├── btn.h
-│   ├── others.h
-│   └── README
-├── influx_dashboard
-│   └── STA_dashboard.json
-├── platformio.ini
-├── README.md
-├── src
-│   ├── btn.cpp
-│   ├── main.cpp
-│   └── others.cpp
-```
-
 ## Wirings
 | Module | Connection |
 |--------|---------|
@@ -95,8 +93,6 @@ WIFI connection lost: `LED cold` and `LED hot` blink for 5s.
 
 
 ### TODO
-- [x] Include the influx db token and ORG in the system config file through WiFiManager
-- [x] Include the NTP servers, timezone in the config file too
-- [ ] Reduce the filesystem size by checking the CSS and JS coverage
+- [ ] Outdoors air quality metrics
 - [ ] OTA updates
-
+- [ ] Add target for other esp version
