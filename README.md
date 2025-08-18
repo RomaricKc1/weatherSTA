@@ -44,6 +44,9 @@ platformio run --target upload -e esp32dev
 >
 > Almost the essentials configs can be done dynamically. After the firmware has been built, you can use the wifi manager portal to set the value as you wish.
 
+### OTA Updates
+You can upload a new firmware through `WiFiManager` at `http://[ip_addr]/update`. You can enable the `on-demand` portal using the physical `button` connected to the `pin27`, and navigate to `Chg WLAN` and set it to `Yes`.
+
 ## Features
 
 **Two Operating Modes**: The system operates in two distinct modes - Clock Mode (default) and Station Mode.
@@ -94,5 +97,4 @@ WIFI connection lost: `LED cold` and `LED hot` blink for 5s.
 
 ### TODO
 - [ ] Outdoors air quality metrics
-- [ ] OTA updates
 - [ ] Add target for other esp version
